@@ -1,113 +1,156 @@
 # 🗺️ GiftLink — Phased Roadmap & Build Order
 
-> This file tells you exactly **what to build first, second, third...** within each phase, and why that order matters (dependencies). Follow the numbered steps top to bottom — don't skip ahead.
+> Follow this roadmap step by step. Each phase is ordered so dependencies are ready before you build the next feature.
 
 ---
 
 ## Phase 1 — MVP (Target: 1–2 weeks)
-Goal: One person can create a gift and another person can open it, end to end.
+Goal: one person can create a gift and another person can open it, end to end.
 
-**Build order:**
+Build order:
+1. Project scaffold
+   - `npx create-next-app`, add Tailwind, connect to a new Supabase project.
+   - Why: everything else needs a working app and a database.
+2. `gifts` table
+   - Create the core Supabase table with fields: `id`, `slug`, `message`, `image_urls`, `open_policy`, `is_opened`, `created_at`.
+   - Why: the create form and reveal page need a place to read/write gift data.
+3. Slug generator + create API
+   - Build `/api/gifts/create` using `nanoid`; save the gift row and return the slug.
+   - Why: implement the write path before the UI so you can test the API first.
+4. Create-gift form (`/create`)
+   - Add message input and single image upload, then call the create API.
+   - Why: this completes the creator flow end to end.
+5. Link result screen
+   - Show the generated `giftlink.app/g/[slug]` link with a copy button.
+   - Why: creators need the link to share the gift.
+6. Public reveal page (`/g/[slug]`)
+   - Fetch the gift by slug, show a tap-to-open interaction, then reveal the message and image.
+   - Why: this completes the share-and-open flow.
+7. One-time-open logic
+   - When opened, set `is_opened = true`; if already opened, show the locked state.
+   - Why: it depends on the existing gift row and reveal page.
+8. Deploy to Vercel
+   - Connect the repo, add Supabase env vars, and deploy.
+   - Why: deploy only after the core flow works locally.
 
-1. **Project scaffold** — `npx create-next-app`, add Tailwind, connect to a new Supabase project
-   - *Why first: everything else needs a running app + a database to talk to.*
-2. **`gifts` table** — create in Supabase with the core fields (see `2_ARCHITECTURE.md` §3): `id`, `slug`, `message`, `image_urls`, `open_policy`, `is_opened`, `created_at`
-   - *Why: the form and the reveal page both need somewhere to read/write.*
-3. **Slug generator + create API** — `/api/gifts/create` using `nanoid`, saves a row, returns the slug
-   - *Why: build the "write" path before the "read/UI" path — easier to test with Postman/curl first.*
-4. **Create-gift form (`/create`)** — message textarea + single image upload → calls the API from step 3
-   - *Why: now you have a working create flow end-to-end.*
-5. **Link result screen** — show the generated `giftlink.app/g/[slug]` link with a copy button
-   - *Why: without this, a creator has no way to actually get the link.*
-6. **Public reveal page (`/g/[slug]`)** — fetch gift by slug, show a simple "tap to open" → reveal message + image (a basic fade or simple confetti is enough for MVP; skip fancy effects for now)
-   - *Why: this is the other half of the loop — now the whole create → share → open flow works.*
-7. **One-time-open logic** — on open, flip `is_opened = true`; if already opened, show the "already opened" state instead
-   - *Why: needs steps 2 & 6 done first, since it modifies the same row the reveal page reads.*
-8. **Deploy to Vercel** — connect repo, add Supabase env vars, deploy
-   - *Why last: deploy once the core loop actually works locally, so you're not debugging on prod.*
+Phase 1 done when:
+- a gift can be created on a phone,
+- the link can be shared,
+- the gift can be opened,
+- and it remains locked on a second visit.
 
-✅ **Phase 1 is done when:** you can create a gift on your phone, send yourself the link over WhatsApp, open it, and see it lock on a second visit.
-
-**Pros of this order:** each step is testable on its own before moving to the next; you get a real working demo after step 6, even before polish.
-**Cons/watch-outs:** no moderation or abuse protection yet — keep links private/shared only, don't publicize the site until Phase 2's report feature exists.
+Notes:
+- Pros: each step is testable, and a working demo exists by step 6.
+- Watch out: no moderation or abuse protection yet. Keep links private until Phase 2 adds reporting.
 
 ---
 
 ## Phase 2 — Personalization & Locks
-Goal: Make gifts feel personal, add light security, and make the reveal actually fun.
+Goal: make gifts feel personal, add light security, and improve the reveal experience.
 
-**Build order:**
+Build order:
+1. Theme picker
+   - Add `theme` to the form and `gifts` table with preset color/style options.
+   - Why: later UI and effects depend on the selected theme.
+2. Reveal effects
+   - Build 2–3 effect components such as confetti, envelope open, or ribbon unwrap. Register them in `effectsRegistry.ts` and map themes to effects.
+   - Why: this is the biggest fun upgrade in this phase.
+3. Name-lock
+   - Add `recipient_name` to the form and require the correct name before revealing the gift.
+   - Why: the gate belongs in front of the reveal, so build the reveal experience first.
+4. PIN-lock
+   - Add optional PIN protection with a similar gate flow.
+5. Multiple images (slideshow)
+   - Change `image_urls` to an array, update multi-upload in the form, and show a slideshow on the reveal page.
+6. Expiry dates
+   - Add `expires_at`; display an expired state on the reveal page when needed.
+7. OG metadata
+   - Add dynamic `<meta>` tags for `/g/[slug]` so shared links show proper previews in WhatsApp/iMessage.
+   - Why: do this after theme and image work is available.
+8. Report abuse flow
+   - Add a "Report this gift" button and an admin moderation queue.
+   - Why: only add this once there is real usage.
 
-1. **Theme picker** — add `theme` field to form + `gifts` table; a few preset color/style themes
-   - *Why first: effects and UI in later steps depend on knowing which theme is active.*
-2. **Real reveal effects** — build 2–3 effect components (confetti, envelope, ribbon-unwrap) per `5_DESIGN.md`, register in an `effectsRegistry.ts`, wire theme → effect mapping
-   - *Why: this is the single biggest "fun factor" upgrade — do it early in this phase.*
-3. **Name-lock** — add `recipient_name` field to form + a name-check gate on the reveal page before the effect plays
-   - *Why after effects: the gate sits in front of the reveal you just built, so build the reveal first.*
-4. **PIN-lock** — same pattern as name-lock, optional extra field
-5. **Multiple images (slideshow)** — extend `image_urls` to an array, update form (multi-upload) and reveal page (slideshow component)
-6. **Expiry dates** — add `expires_at`; reveal page checks and shows an "expired" state (reuse the "already opened" pattern from Phase 1)
-7. **OG image/meta tags** — add dynamic `<meta>` tags to `/g/[slug]` so shared links look good in WhatsApp/iMessage previews
-   - *Why near the end: needs the theme/image work above to generate a meaningful preview image.*
-8. **"Report this gift" link + moderation queue** — simple flag button + an admin-only table/page to review flags
-   - *Why last: only worth doing once there's real (even if small) public traffic.*
+Phase 2 done when:
+- gifts feel delightful,
+- at least one lock option exists,
+- and abuse can be reported.
 
-✅ **Phase 2 is done when:** a gift feels genuinely delightful to open, has at least a basic lock option, and there's a way to report abuse.
-
-**Pros:** big jump in fun/shareability with contained scope.
-**Cons/watch-outs:** don't let the create-form balloon — keep it to ~60 seconds to fill out; make new fields optional, not required.
+Notes:
+- Pros: boosts shareability while staying focused.
+- Watch out: keep the create form easy to complete. Make new fields optional.
 
 ---
 
 ## Phase 3 — Accounts & Notifications
-Goal: Let creators track what they've sent and know when it's opened.
+Goal: let creators track sent gifts and receive open notifications.
 
-**Build order:**
+Build order:
+1. Supabase Auth (optional login)
+   - Add email and Google login, but keep gift creation open to anonymous users.
+   - Why: dashboard and notifications need a `user_id`.
+2. Link gifts to users
+   - Add optional `user_id` to `gifts` and assign it for logged-in creators.
+3. Sent gifts dashboard (`/dashboard`)
+   - Show a user's gifts with open/unopened status.
+   - Why: needs the `user_id` link.
+4. `open_events` table + logging
+   - Record each open event with timestamp and hashed IP.
+   - Why: notifications need logged open events.
+5. Open notification email
+   - Send a "They opened it!" email when the first open event is recorded.
+6. Basic analytics
+   - Show visits versus opens on the dashboard.
 
-1. **Supabase Auth (optional login)** — email + Google login, but creating/sending a gift must still work without logging in
-   - *Why first: everything else in this phase (dashboard, notifications) needs a `user_id` to attach to.*
-2. **Link gifts to users** — add optional `user_id` to `gifts` table, set it when a logged-in user creates one
-3. **"My sent gifts" dashboard (`/dashboard`)** — list a user's gifts with open/unopened status
-   - *Why after step 2: needs the `user_id` link to query by.*
-4. **`open_events` table + logging** — record each open (timestamp, hashed IP) when a gift is opened
-   - *Why before notifications: you need the event to exist before you can notify on it.*
-5. **"They opened it!" email notification** — trigger on first `open_events` insert (Supabase Function or simple webhook + email API like Resend)
-6. **Basic analytics** — visits vs. actual opens, shown on the dashboard per gift
+Phase 3 done when:
+- logged-in creators can see their sent gifts,
+- and they receive notifications when gifts are opened.
 
-✅ **Phase 3 is done when:** a logged-in creator can see all gifts they've sent and get notified the moment one is opened.
-
-**Pros:** sets up retention and the data needed for Phase 4 monetization.
-**Cons/watch-outs:** keep auth fully optional — never gate the core create/send flow behind login.
+Notes:
+- Pros: builds retention and support for future monetization.
+- Watch out: keep auth optional and never gate the core gift flow.
 
 ---
 
 ## Phase 4 — Monetization & Growth
-Goal: Add premium effects and a payment gateway, plus virality features.
+Goal: add premium unlocks, payment support, and viral growth features.
 
-**Build order:**
+Build order:
+1. Premium effects library
+   - Build higher-effort premium effects (fireworks, snowfall, custom video intro) in `effectsRegistry.ts`.
+   - Why: create premium content before adding a paywall.
+2. `payments` table
+   - Add a payments table in Supabase.
+3. Checkout integration
+   - Build `/api/payments/create-session` for Stripe or Razorpay.
+4. Payment webhook handler
+   - Verify payment signatures, mark `payments.status = success`, and set `gifts.is_premium = true`.
+   - Why: webhook confirmation must be the source of truth.
+5. Premium upsell UI
+   - Show premium effects with badges and prices in the create flow.
+   - Why: UI should come after backend payment support exists.
+6. Video/audio messages
+   - Support short clips in storage and on the reveal page.
+7. Public gift wall / template gallery
+   - Add an opt-in, anonymized showcase for marketing.
+8. QR code downloads
+   - Generate shareable QR codes on the link result screen.
+9. Mobile app wrapper
+   - Only build this if usage data shows real demand.
 
-1. **Premium effects library** — build the higher-effort effects (fireworks, snowfall, custom video intro) as new entries in `effectsRegistry.ts`
-   - *Why first: payments need something real to unlock — build the product before the paywall.*
-2. **`payments` table** — add to Supabase per `2_ARCHITECTURE.md` §3
-3. **Stripe (or Razorpay) Checkout integration** — `/api/payments/create-session` creates a hosted checkout session for a chosen premium effect/pack
-4. **Webhook handler (`/api/payments/webhook`)** — verifies signature, marks `payments.status = success`, sets `gifts.is_premium = true`
-   - *Why after step 3: the webhook is the trusted source of truth — never unlock premium from the client-side redirect alone.*
-5. **Upsell UI in create-flow** — show premium effects with a "✨ Premium" badge + price, redirect to checkout when selected
-   - *Why last in the payment chain: UI is the final connective layer once the backend can actually process a real payment.*
-6. **Video/audio message support** — extend storage + reveal page to handle short clips
-7. **Public gift wall / template gallery** — opt-in, anonymized showcase of past gifts for marketing/virality
-8. **Downloadable QR codes** — `qrcode` package, generate on the link-result screen from Phase 1 step 5
-9. **Mobile app wrapper** — only build if there's real demand signal from usage data (Expo/Capacitor)
+Phase 4 done when:
+- premium payments are processed reliably,
+- unlocks are confirmed by webhook,
+- and creators can purchase premium reveal content.
 
-✅ **Phase 4 is done when:** a creator can pay for a premium effect and it reliably unlocks, verified through the webhook — not the redirect.
-
-**Pros:** real monetization path; QR/gallery features add organic growth.
-**Cons/watch-outs:** payment integration is the highest-risk phase for bugs/security — follow the webhook-only-confirmation rule strictly (see `3_RULES.md` §6), and don't start this phase until Phases 1–3 are stable in production.
+Notes:
+- Pros: enables monetization and organic growth.
+- Watch out: payment integration is high-risk. Follow webhook-only confirmation rules.
 
 ---
 
 ## Cross-Phase Reminders
-- Update `5_DESIGN.md` whenever a new effect/theme is added
-- Update `6_MEMORY.md` after every work session — mark what's done, what's in progress, what's next
-- Re-check `3_RULES.md` "Definition of Done" before marking any step above complete
-- Never start a phase's step out of order — most steps depend on the one before it existing first
+- Update `5_DESIGN.md` whenever a new effect or theme is added.
+- Update `6_MEMORY.md` after every work session.
+- Review `3_RULES.md` "Definition of Done" before marking a step complete.
+- Keep phase order. Most steps depend on the previous one.
