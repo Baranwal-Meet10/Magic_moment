@@ -46,7 +46,7 @@ Notes:
 ---
 
 ## Phase 2 — Personalization & Locks
-Goal: make gifts feel personal, add light security, and improve the reveal experience.
+Goal: make gifts feel personal, add high security, and improve the reveal experience.
 
 Build order:
 1. Theme picker
@@ -150,7 +150,6 @@ Notes:
 ---
 
 ## Cross-Phase Reminders
-- Update `5_DESIGN.md` whenever a new effect or theme is added.
 - Update `6_MEMORY.md` after every work session.
 - Review `3_RULES.md` "Definition of Done" before marking a step complete.
 - Keep phase order. Most steps depend on the previous one.

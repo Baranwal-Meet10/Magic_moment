@@ -30,3 +30,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local npm / analysis artifacts
+package-lock.json
+npm-ls*.json
+npm-ls*.err
+install-exists.txt
+repo-files.txt
+repo-root.txt
