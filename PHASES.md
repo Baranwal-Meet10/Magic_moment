@@ -82,7 +82,8 @@ Notes:
 
 ---
 
-## Phase 3 — Accounts & Notifications
+## Phase 3 — Accounts & Notifications    
+<!-- i think this is for future purpose  -->
 Goal: let creators track sent gifts and receive open notifications.
 
 Build order:
