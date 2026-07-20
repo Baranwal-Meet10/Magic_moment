@@ -21,29 +21,31 @@ import { Gift, Lock, Sparkles, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type GiftRow = {
+// Metadata returned by get_gift_by_slug — deliberately does NOT include
+// message or image paths. Those are revealed only by open_gift().
+type GiftMeta = {
   slug: string;
-  message: string;
   creator_name: string | null;
   theme: string;
-  image_urls: string[];
   is_opened: boolean;
   opened_at: string | null;
   created_at: string;
+  has_images: boolean;
 };
 
 export const Route = createFileRoute("/g/$slug")({
   component: RevealPage,
   loader: async ({ params }) => {
-    // SECURITY DEFINER RPC. Table is not readable via Data API.
+    // SECURITY DEFINER RPC. Returns metadata only — never the message.
     const { data, error } = await supabase.rpc("get_gift_by_slug", {
       _slug: params.slug,
     });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw notFound();
-    return { gift: row as GiftRow };
+    return { gift: row as unknown as GiftMeta };
   },
+
   head: ({ loaderData }) => ({
     meta: loaderData?.gift
       ? [
@@ -112,16 +114,23 @@ function RevealPage() {
   const [unwrapping, setUnwrapping] = useState(false);
   const [signedImages, setSignedImages] = useState<string[]>([]);
   const [openError, setOpenError] = useState(false);
+  // Message + image paths are ONLY populated by a successful open_gift RPC.
+  // The loader never fetches them, so a curious visitor cannot read the
+  // message via the API without tripping the one-time open lock.
+  const [revealed, setRevealed] = useState<{
+    message: string;
+    image_urls: string[];
+  } | null>(null);
 
-  // Lazily sign private-bucket URLs after open. Failure is non-fatal.
+  // Sign private image paths once we have them (only after open_gift succeeded).
   useEffect(() => {
-    if (!opened || !gift.image_urls?.length) return;
+    if (!opened || !revealed?.image_urls?.length) return;
     let cancelled = false;
     (async () => {
       try {
         const { data, error } = await supabase.storage
           .from("gift-images")
-          .createSignedUrls(gift.image_urls, 60 * 60);
+          .createSignedUrls(revealed.image_urls, 60 * 60);
         if (cancelled) return;
         if (error) {
           console.warn("[reveal] image sign failed", error);
@@ -139,16 +148,18 @@ function RevealPage() {
     return () => {
       cancelled = true;
     };
-  }, [opened, gift.image_urls]);
+  }, [opened, revealed]);
 
   const unwrap = async () => {
     if (unwrapping || opened) return;
     setUnwrapping(true);
     setOpenError(false);
 
-    // Race-safe flip. RPC returns true when THIS caller won the flip;
-    // false is fine too — someone else opened it first, still show the message.
-    const { error } = await supabase.rpc("open_gift", { _slug: gift.slug });
+    // Race-safe: only the first caller to win the row-update flip gets
+    // was_opened=true along with the message + image paths. Everyone else
+    // gets was_opened=false and null content — we treat that as "already
+    // opened elsewhere" and show the locked screen.
+    const { data, error } = await supabase.rpc("open_gift", { _slug: gift.slug });
 
     if (error) {
       console.error("[reveal] open_gift failed", error);
@@ -158,6 +169,17 @@ function RevealPage() {
       return;
     }
 
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row?.was_opened || !row?.message) {
+      // Someone (maybe another tab, maybe someone the link was forwarded to)
+      // opened it first. Do NOT show contents.
+      setUnwrapping(false);
+      toast.info("This gift was just opened somewhere else.");
+      window.location.reload();
+      return;
+    }
+
+    setRevealed({ message: row.message, image_urls: row.image_urls ?? [] });
     // Delay matches the lid-pop animation so the reveal feels continuous.
     setTimeout(() => setOpened(true), 900);
   };
@@ -165,6 +187,7 @@ function RevealPage() {
   if (gift.is_opened && !unwrapping) {
     return <AlreadyOpened gift={gift} />;
   }
+
 
   return (
     <main className="relative min-h-screen overflow-hidden">
@@ -237,9 +260,10 @@ function RevealPage() {
                 className="animate-message-in whitespace-pre-wrap font-display text-2xl leading-relaxed text-foreground sm:text-3xl"
                 style={{ animationDelay: "0.8s" }}
               >
-                {gift.message}
+                {revealed?.message}
               </p>
             </div>
+
 
             <Link
               to="/create"
@@ -420,7 +444,7 @@ function Confetti() {
   );
 }
 
-function AlreadyOpened({ gift }: { gift: GiftRow }) {
+function AlreadyOpened({ gift }: { gift: GiftMeta }) {
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="max-w-md rounded-3xl border border-border bg-card p-10 text-center shadow-soft">
