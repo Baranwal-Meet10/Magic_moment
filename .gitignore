@@ -36,6 +36,7 @@ supabase/.branches/
 *.njsproj
 *.sln
 *.sw?
+.venv
 
 # Local npm / analysis artifacts
 package-lock.json
