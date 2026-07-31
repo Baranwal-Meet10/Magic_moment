@@ -112,7 +112,7 @@ Notes:
 - Watch out: keep auth optional and never gate the core gift flow.
 
 ---
-
+<!-- phase 3 till i have completed stay tune -->
 ## Phase 4 — Monetization & Growth
 Goal: add premium unlocks, payment support, and viral growth features.
 
