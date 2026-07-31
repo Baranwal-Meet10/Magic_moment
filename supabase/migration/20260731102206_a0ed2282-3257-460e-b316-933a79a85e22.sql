@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Anyone can read gift images" ON storage.objects;

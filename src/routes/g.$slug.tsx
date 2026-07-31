@@ -20,6 +20,8 @@ import { useState, useEffect, useMemo } from "react";
 import { Gift, Lock, Sparkles, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getGiftImageUrls } from "@/lib/gift-images.functions";
+
 
 // Metadata returned by get_gift_by_slug — deliberately does NOT include
 // message or image paths. Those are revealed only by open_gift().
@@ -122,33 +124,24 @@ function RevealPage() {
     image_urls: string[];
   } | null>(null);
 
-  // Sign private image paths once we have them (only after open_gift succeeded).
+  // Photos live in a private bucket with no client-readable policy, so the
+  // signing happens server-side and only for gifts that are already opened.
   useEffect(() => {
     if (!opened || !revealed?.image_urls?.length) return;
     let cancelled = false;
     (async () => {
       try {
-        const { data, error } = await supabase.storage
-          .from("gift-images")
-          .createSignedUrls(revealed.image_urls, 60 * 60);
-        if (cancelled) return;
-        if (error) {
-          console.warn("[reveal] image sign failed", error);
-          return;
-        }
-        if (data) {
-          setSignedImages(
-            data.map((d) => d.signedUrl).filter((u): u is string => !!u),
-          );
-        }
+        const { urls } = await getGiftImageUrls({ data: { slug: gift.slug } });
+        if (!cancelled) setSignedImages(urls);
       } catch (err) {
-        console.warn("[reveal] image sign threw", err);
+        console.warn("[reveal] image sign failed", err);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [opened, revealed]);
+  }, [opened, revealed, gift.slug]);
+
 
   const unwrap = async () => {
     if (unwrapping || opened) return;
