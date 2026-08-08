@@ -22,6 +22,7 @@ import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGiftImageUrls } from "@/lib/gift-images.functions";
 
+
 // Metadata returned by get_gift_by_slug — deliberately does NOT include
 // message or image paths. Those are revealed only by open_gift().
 type GiftMeta = {
@@ -140,7 +141,8 @@ function RevealPage() {
       cancelled = true;
     };
   }, [opened, revealed, gift.slug]);
-  
+
+
   const unwrap = async () => {
     if (unwrapping || opened) return;
     setUnwrapping(true);
@@ -196,11 +198,19 @@ function RevealPage() {
             </h1>
             <p className="mb-12 text-muted-foreground">Tap the box to unwrap it.</p>
 
+            {/*
+              Mobile note: this used to rely on a `group-hover` style, which on
+              iOS makes the first tap register as hover-only ("tap twice to
+              open"). We now drive everything from state and add
+              touch-action: manipulation so the tap fires immediately.
+            */}
             <button
+              type="button"
               onClick={unwrap}
               disabled={unwrapping}
               aria-label="Unwrap gift"
-              className="group relative disabled:cursor-not-allowed"
+              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              className="relative select-none disabled:cursor-not-allowed"
             >
               <GiftBox unwrapping={unwrapping} />
               {unwrapping && <SparkleBurst />}
@@ -273,10 +283,11 @@ function RevealPage() {
 function GiftBox({ unwrapping }: { unwrapping: boolean }) {
   return (
     <div className="relative h-56 w-56 sm:h-72 sm:w-72">
-      {/* Warm halo glow — only visible while idle */}
+      {/* Warm halo glow — GPU-composited pulse (opacity/scale, no box-shadow).
+          Lighter blur keeps mobile GPUs from dropping frames. */}
       {!unwrapping && (
         <div
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[130%] w-[130%] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-60 blur-3xl"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[120%] w-[120%] animate-glow-pulse rounded-full blur-2xl"
           style={{
             background:
               "radial-gradient(circle, oklch(0.75 0.18 30 / 0.55) 0%, transparent 65%)",
@@ -297,8 +308,8 @@ function GiftBox({ unwrapping }: { unwrapping: boolean }) {
 
       {/* Box body */}
       <div
-        className={`absolute inset-x-0 bottom-0 top-16 rounded-2xl bg-gradient-warm shadow-gift transition-transform ${
-          !unwrapping ? "animate-box-shake animate-box-glow group-hover:animate-none" : ""
+        className={`absolute inset-x-0 bottom-0 top-16 rounded-2xl bg-gradient-warm shadow-gift ${
+          !unwrapping ? "animate-box-shake" : ""
         }`}
       >
         {/* Vertical ribbon on the body */}
@@ -385,10 +396,13 @@ function SparkleBurst() {
 }
 
 /**
- * Falling confetti with mixed shapes (rectangles, circles, thin ribbons)
- * and varied sizes for a richer feel than the Phase 1 uniform strips.
+ * Falling confetti with mixed shapes (rectangles, circles, thin ribbons).
+ * Perf: piece count scales down on small screens, and the whole layer
+ * unmounts once the animation finishes so nothing keeps compositing.
  */
 function Confetti() {
+  const [done, setDone] = useState(false);
+
   const pieces = useMemo(() => {
     const colors = [
       "oklch(0.72 0.17 25)",
@@ -398,7 +412,9 @@ function Confetti() {
       "oklch(0.62 0.20 350)",
       "oklch(0.85 0.12 200)",
     ];
-    return Array.from({ length: 60 }).map((_, i) => {
+    const isSmall = typeof window !== "undefined" && window.innerWidth < 640;
+    const count = isSmall ? 26 : 60;
+    return Array.from({ length: count }).map((_, i) => {
       const shape = i % 3; // 0=rect, 1=circle, 2=thin ribbon
       const width = shape === 2 ? 3 : 6 + Math.random() * 8;
       const height = shape === 2 ? 18 + Math.random() * 10 : shape === 1 ? width : 10 + Math.random() * 10;
@@ -414,6 +430,13 @@ function Confetti() {
     });
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDone(true), 6000);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (done) return null;
+
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {pieces.map((p, i) => (
@@ -427,6 +450,7 @@ function Confetti() {
             height: p.height,
             top: -20,
             borderRadius: p.radius,
+            willChange: "transform, opacity",
           }}
           className="absolute"
         />
