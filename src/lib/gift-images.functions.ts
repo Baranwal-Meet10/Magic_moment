@@ -22,11 +22,13 @@ export const getGiftImageUrls = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ urls: string[] }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    console.time('[server] getGiftImageUrls-db');
     const { data: gift, error } = await supabaseAdmin
       .from("gifts")
       .select("image_urls, is_opened")
       .eq("slug", data.slug)
       .maybeSingle();
+    console.timeEnd('[server] getGiftImageUrls-db');
 
     // Never leak why: unknown slug, closed gift and no photos all look alike.
     if (error || !gift || !gift.is_opened) return { urls: [] };
@@ -34,9 +36,11 @@ export const getGiftImageUrls = createServerFn({ method: "POST" })
     const paths = (gift.image_urls ?? []).slice(0, 3);
     if (paths.length === 0) return { urls: [] };
 
+    console.time('[server] getGiftImageUrls-sign');
     const { data: signed, error: signError } = await supabaseAdmin.storage
       .from("gift-images")
       .createSignedUrls(paths, 60 * 60);
+    console.timeEnd('[server] getGiftImageUrls-sign');
 
     if (signError || !signed) return { urls: [] };
 
