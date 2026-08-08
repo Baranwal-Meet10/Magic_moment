@@ -130,12 +130,9 @@ function RevealPage() {
     let cancelled = false;
     (async () => {
       try {
-        console.time('[reveal] getGiftImageUrls-client');
         const { urls } = await getGiftImageUrls({ data: { slug: gift.slug } });
-        console.timeEnd('[reveal] getGiftImageUrls-client');
         if (!cancelled) setSignedImages(urls);
       } catch (err) {
-        console.timeEnd('[reveal] getGiftImageUrls-client');
         console.warn("[reveal] image sign failed", err);
       }
     })();
@@ -153,9 +150,7 @@ function RevealPage() {
     // was_opened=true along with the message + image paths. Everyone else
     // gets was_opened=false and null content — we treat that as "already
     // opened elsewhere" and show the locked screen.
-    console.time('[reveal] open_gift');
     const { data, error } = await supabase.rpc("open_gift", { _slug: gift.slug });
-    console.timeEnd('[reveal] open_gift');
 
     if (error) {
       console.error("[reveal] open_gift failed", error);
