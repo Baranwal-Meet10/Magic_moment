@@ -22,6 +22,7 @@ import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGiftImageUrls } from "@/lib/gift-images.functions";
 
+
 // Metadata returned by get_gift_by_slug — deliberately does NOT include
 // message or image paths. Those are revealed only by open_gift().
 type GiftMeta = {
@@ -140,7 +141,8 @@ function RevealPage() {
       cancelled = true;
     };
   }, [opened, revealed, gift.slug]);
-  
+
+
   const unwrap = async () => {
     if (unwrapping || opened) return;
     setUnwrapping(true);
