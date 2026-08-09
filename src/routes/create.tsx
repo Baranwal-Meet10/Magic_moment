@@ -11,12 +11,13 @@
 //                      not a public URL — reveal page signs it on demand.
 // ---------------------------------------------------------------------------
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Gift, ArrowLeft, Image as ImageIcon, Loader2, Check, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateSlug } from "@/lib/slug";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
+import { MobileButton } from "@/components/mobile-touch";
 
 export const Route = createFileRoute("/create")({
   component: CreatePage,
@@ -46,6 +47,8 @@ function CreatePage() {
   // --- Submit state -------------------------------------------------------
   const [submitting, setSubmitting] = useState(false);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const isSubmittingRef = useRef(false);
 
   // Validate + preview a selected file. Passing null clears the selection.
   const onFile = (f: File | null) => {
@@ -91,11 +94,13 @@ function CreatePage() {
   // Create the gift: upload photo (if any), then insert the row via RPC.
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
     if (!message.trim()) {
       toast.error("Add a message first.");
       return;
     }
     setSubmitting(true);
+    isSubmittingRef.current = true;
     try {
       const slug = generateSlug();
       let imageUrls: string[] = [];
@@ -130,6 +135,7 @@ function CreatePage() {
       toast.error(friendlyError(err));
     } finally {
       setSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -168,7 +174,7 @@ function CreatePage() {
           Write something they'll want to keep. Add one photo if you like.
         </p>
 
-        <form onSubmit={submit} className="mt-10 space-y-6 rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">
+        <form ref={formRef} onSubmit={submit} className="mt-10 space-y-6 rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">
           <div>
             <label className="mb-2 block text-sm font-medium">From (optional)</label>
             <input
@@ -248,9 +254,15 @@ function CreatePage() {
             )}
           </div>
 
-          <button
+          <MobileButton
             type="submit"
             disabled={submitting}
+            onPointerDown={(event) => {
+              if (event.pointerType === "touch" && !submitting) {
+                event.preventDefault();
+                formRef.current?.requestSubmit?.();
+              }
+            }}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-warm py-4 text-base font-medium text-primary-foreground shadow-gift transition-transform hover:scale-[1.02] disabled:opacity-60"
           >
             {submitting ? (
@@ -262,7 +274,7 @@ function CreatePage() {
                 <Gift className="h-5 w-5" /> Create gift link
               </>
             )}
-          </button>
+          </MobileButton>
         </form>
       </section>
     </main>

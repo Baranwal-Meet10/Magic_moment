@@ -16,11 +16,12 @@
 //     is always readable.
 // ---------------------------------------------------------------------------
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Gift, Lock, Sparkles, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGiftImageUrls } from "@/lib/gift-images.functions";
+import { MobileButton } from "@/components/mobile-touch";
 
 
 // Metadata returned by get_gift_by_slug — deliberately does NOT include
@@ -116,6 +117,7 @@ function RevealPage() {
   const [unwrapping, setUnwrapping] = useState(false);
   const [signedImages, setSignedImages] = useState<string[]>([]);
   const [openError, setOpenError] = useState(false);
+  const isUnwrappingRef = useRef(false);
   // Message + image paths are ONLY populated by a successful open_gift RPC.
   // The loader never fetches them, so a curious visitor cannot read the
   // message via the API without tripping the one-time open lock.
@@ -144,8 +146,9 @@ function RevealPage() {
 
 
   const unwrap = async () => {
-    if (unwrapping || opened) return;
+    if (unwrapping || opened || isUnwrappingRef.current) return;
     setUnwrapping(true);
+    isUnwrappingRef.current = true;
     setOpenError(false);
 
     // Race-safe: only the first caller to win the row-update flip gets
@@ -157,6 +160,7 @@ function RevealPage() {
     if (error) {
       console.error("[reveal] open_gift failed", error);
       setUnwrapping(false);
+      isUnwrappingRef.current = false;
       setOpenError(true);
       toast.error("Couldn't open the gift right now. Please try again.");
       return;
@@ -175,6 +179,7 @@ function RevealPage() {
     setRevealed({ message: row.message, image_urls: row.image_urls ?? [] });
     // Delay matches the lid-pop animation so the reveal feels continuous.
     setTimeout(() => setOpened(true), 900);
+    isUnwrappingRef.current = false;
   };
 
   if (gift.is_opened && !unwrapping) {
@@ -204,17 +209,22 @@ function RevealPage() {
               open"). We now drive everything from state and add
               touch-action: manipulation so the tap fires immediately.
             */}
-            <button
+            <MobileButton
               type="button"
               onClick={unwrap}
+              onPointerDown={(event) => {
+                if (event.pointerType === "touch") {
+                  event.preventDefault();
+                  unwrap();
+                }
+              }}
               disabled={unwrapping}
               aria-label="Unwrap gift"
-              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
               className="relative select-none disabled:cursor-not-allowed"
             >
               <GiftBox unwrapping={unwrapping} />
               {unwrapping && <SparkleBurst />}
-            </button>
+            </MobileButton>
 
             {openError ? (
               <div className="mt-8 flex flex-col items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-4">
