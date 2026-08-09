@@ -212,15 +212,15 @@ function RevealPage() {
             <MobileButton
               type="button"
               onClick={unwrap}
-              onPointerDown={(event) => {
-                if (event.pointerType === "touch") {
+              onTouchStart={(event) => {
+                if (!unwrapping && !opened) {
                   event.preventDefault();
                   unwrap();
                 }
               }}
               disabled={unwrapping}
               aria-label="Unwrap gift"
-              className="relative select-none disabled:cursor-not-allowed"
+              className="relative select-none disabled:cursor-not-allowed px-4 py-4"
             >
               <GiftBox unwrapping={unwrapping} />
               {unwrapping && <SparkleBurst />}

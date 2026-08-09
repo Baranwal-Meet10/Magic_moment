@@ -3,20 +3,18 @@ import { cn } from "@/lib/utils";
 
 type MobileButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement>;
 
-export function MobileButton({ className, style, onClick, onPointerDown, disabled, ...props }: MobileButtonProps) {
-  const pointerHandled = React.useRef(false);
+export function MobileButton({ className, style, onClick, onTouchStart, ...props }: MobileButtonProps) {
+  const touchStarted = React.useRef(false);
 
-  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (event.pointerType === "touch" && onClick && !disabled) {
-      pointerHandled.current = true;
-      onClick(event as unknown as React.MouseEvent<HTMLButtonElement>);
-    }
-    onPointerDown?.(event);
+  const handleTouchStart = (event: React.TouchEvent<HTMLButtonElement>) => {
+    touchStarted.current = true;
+    onTouchStart?.(event);
   };
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (pointerHandled.current) {
-      pointerHandled.current = false;
+    if (touchStarted.current) {
+      touchStarted.current = false;
+      event.preventDefault();
       return;
     }
     onClick?.(event);
@@ -25,9 +23,8 @@ export function MobileButton({ className, style, onClick, onPointerDown, disable
   return (
     <button
       {...props}
-      onPointerDown={handlePointerDown}
+      onTouchStart={handleTouchStart}
       onClick={handleClick}
-      disabled={disabled}
       style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", ...style }}
       className={cn(className)}
     />

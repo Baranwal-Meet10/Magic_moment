@@ -257,12 +257,6 @@ function CreatePage() {
           <MobileButton
             type="submit"
             disabled={submitting}
-            onPointerDown={(event) => {
-              if (event.pointerType === "touch" && !submitting) {
-                event.preventDefault();
-                formRef.current?.requestSubmit?.();
-              }
-            }}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-warm py-4 text-base font-medium text-primary-foreground shadow-gift transition-transform hover:scale-[1.02] disabled:opacity-60"
           >
             {submitting ? (
