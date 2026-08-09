@@ -7,7 +7,7 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   return (
-    <main className="min-h-screen">
+    <main className="min-h-dvh">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <Link to="/" className="flex items-center gap-2 font-display text-xl font-semibold">
           <Gift className="h-6 w-6 text-primary" />

@@ -9,11 +9,8 @@
 //
 // Errors:
 //   • Loader failure → errorComponent (retry via router.invalidate).
-//   • RPC open failure → inline toast + Retry button. Raw error text is
-//     never surfaced to the user — only a friendly message. The technical
-//     detail is only kept in the console for the developer.
-//   • Image sign failure → the photo is silently skipped so the message
-//     is always readable.
+//   • RPC open failure → inline toast + Retry button. Safe non-leaking message.
+//   • Image sign failure → photo skipped gracefully.
 // ---------------------------------------------------------------------------
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -21,11 +18,9 @@ import { Gift, Lock, Sparkles, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGiftImageUrls } from "@/lib/gift-images.functions";
-import { MobileButton } from "@/components/mobile-touch";
+import { getThemeConfig } from "@/lib/theme";
+import { MobileGiftBox, MobileButton } from "@/components/mobile-touch";
 
-
-// Metadata returned by get_gift_by_slug — deliberately does NOT include
-// message or image paths. Those are revealed only by open_gift().
 type GiftMeta = {
   slug: string;
   creator_name: string | null;
@@ -70,7 +65,7 @@ export const Route = createFileRoute("/g/$slug")({
       : [],
   }),
   notFoundComponent: () => (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="flex min-h-dvh items-center justify-center px-4">
       <div className="max-w-md text-center">
         <h1 className="font-display text-4xl font-semibold">This gift doesn't exist.</h1>
         <p className="mt-3 text-muted-foreground">
@@ -91,7 +86,7 @@ export const Route = createFileRoute("/g/$slug")({
 function LoaderError() {
   const router = useRouter();
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 text-center">
+    <div className="flex min-h-dvh items-center justify-center px-4 text-center">
       <div className="max-w-md rounded-3xl border border-border bg-card p-10 shadow-soft">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-primary">
           <AlertTriangle className="h-6 w-6" />
@@ -100,12 +95,12 @@ function LoaderError() {
         <p className="mt-3 text-muted-foreground">
           Check your connection and try again — nothing has been opened.
         </p>
-        <button
+        <MobileButton
           onClick={() => router.invalidate()}
           className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-soft"
         >
           <RefreshCw className="h-4 w-4" /> Try again
-        </button>
+        </MobileButton>
       </div>
     </div>
   );
@@ -113,21 +108,21 @@ function LoaderError() {
 
 function RevealPage() {
   const { gift } = Route.useLoaderData();
+  const themeConfig = useMemo(() => getThemeConfig(gift.theme), [gift.theme]);
+
   const [opened, setOpened] = useState(gift.is_opened);
   const [unwrapping, setUnwrapping] = useState(false);
   const [signedImages, setSignedImages] = useState<string[]>([]);
   const [openError, setOpenError] = useState(false);
-  const isUnwrappingRef = useRef(false);
-  // Message + image paths are ONLY populated by a successful open_gift RPC.
-  // The loader never fetches them, so a curious visitor cannot read the
-  // message via the API without tripping the one-time open lock.
+
+  // Sync lock so multiple taps or network delays can't double-call open_gift.
+  const unwrapLock = useRef(false);
+
   const [revealed, setRevealed] = useState<{
     message: string;
     image_urls: string[];
   } | null>(null);
 
-  // Photos live in a private bucket with no client-readable policy, so the
-  // signing happens server-side and only for gifts that are already opened.
   useEffect(() => {
     if (!opened || !revealed?.image_urls?.length) return;
     let cancelled = false;
@@ -144,99 +139,97 @@ function RevealPage() {
     };
   }, [opened, revealed, gift.slug]);
 
-
   const unwrap = async () => {
-    if (unwrapping || opened || isUnwrappingRef.current) return;
+    if (unwrapLock.current || unwrapping || opened) return;
+    unwrapLock.current = true;
     setUnwrapping(true);
-    isUnwrappingRef.current = true;
     setOpenError(false);
 
-    // Race-safe: only the first caller to win the row-update flip gets
-    // was_opened=true along with the message + image paths. Everyone else
-    // gets was_opened=false and null content — we treat that as "already
-    // opened elsewhere" and show the locked screen.
-    const { data, error } = await supabase.rpc("open_gift", { _slug: gift.slug });
+    try {
+      const { data, error } = await supabase.rpc("open_gift", { _slug: gift.slug });
 
-    if (error) {
-      console.error("[reveal] open_gift failed", error);
+      if (error) {
+        console.error("[reveal] open_gift failed", error);
+        unwrapLock.current = false;
+        setUnwrapping(false);
+        setOpenError(true);
+        toast.error("Couldn't open the gift right now. Please try again.");
+        return;
+      }
+
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row?.was_opened || !row?.message) {
+        unwrapLock.current = false;
+        setUnwrapping(false);
+        toast.info("This gift was just opened somewhere else.");
+        window.location.reload();
+        return;
+      }
+
+      setRevealed({ message: row.message, image_urls: row.image_urls ?? [] });
+      setTimeout(() => setOpened(true), 900);
+    } catch (err) {
+      console.error("[reveal] unexpected error", err);
+      unwrapLock.current = false;
       setUnwrapping(false);
-      isUnwrappingRef.current = false;
       setOpenError(true);
-      toast.error("Couldn't open the gift right now. Please try again.");
-      return;
+      toast.error("Network issue. Please tap again.");
     }
-
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row?.was_opened || !row?.message) {
-      // Someone (maybe another tab, maybe someone the link was forwarded to)
-      // opened it first. Do NOT show contents.
-      setUnwrapping(false);
-      toast.info("This gift was just opened somewhere else.");
-      window.location.reload();
-      return;
-    }
-
-    setRevealed({ message: row.message, image_urls: row.image_urls ?? [] });
-    // Delay matches the lid-pop animation so the reveal feels continuous.
-    setTimeout(() => setOpened(true), 900);
-    isUnwrappingRef.current = false;
   };
 
   if (gift.is_opened && !unwrapping) {
-    return <AlreadyOpened gift={gift} />;
+    return <AlreadyOpened gift={gift} themeId={gift.theme} />;
   }
 
-
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main
+      className="relative min-h-dvh overflow-x-hidden transition-colors duration-500"
+      style={{ background: themeConfig.bgGradient }}
+    >
       <Toaster position="top-center" richColors />
-      {opened && <Confetti />}
+      {opened && <Confetti colors={themeConfig.confettiColors} />}
 
-      <div className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-6 py-16 text-center">
+      <div
+        className={`mx-auto flex min-h-dvh max-w-2xl flex-col items-center px-6 py-16 text-center ${
+          opened ? "justify-start sm:justify-center" : "justify-center"
+        }`}
+      >
         {!opened ? (
           <>
-            <p className="mb-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
+            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
               {gift.creator_name ? `From ${gift.creator_name}` : "Someone sent you"}
             </p>
-            <h1 className="mb-2 font-display text-4xl font-semibold tracking-tight sm:text-6xl">
-              A gift for you.
-            </h1>
-            <p className="mb-12 text-muted-foreground">Tap the box to unwrap it.</p>
 
-            {/*
-              Mobile note: this used to rely on a `group-hover` style, which on
-              iOS makes the first tap register as hover-only ("tap twice to
-              open"). We now drive everything from state and add
-              touch-action: manipulation so the tap fires immediately.
-            */}
-            <MobileButton
-              type="button"
-              onClick={unwrap}
-              onTouchStart={(event) => {
-                if (!unwrapping && !opened) {
-                  event.preventDefault();
-                  unwrap();
-                }
-              }}
-              disabled={unwrapping}
-              aria-label="Unwrap gift"
-              className="relative select-none disabled:cursor-not-allowed px-4 py-4"
-            >
-              <GiftBox unwrapping={unwrapping} />
-              {unwrapping && <SparkleBurst />}
-            </MobileButton>
+            <h1 className="mb-2 font-display text-4xl font-bold tracking-tight sm:text-6xl">
+              A gift for you {themeConfig.emoji}
+            </h1>
+
+            <p className="mb-10 text-muted-foreground font-medium">
+              Tap the gift box below to unwrap it.
+            </p>
+
+            {/* Mobile Touch Optimized Interactive Gift Box */}
+            <div className="relative">
+              <MobileGiftBox
+                themeId={gift.theme}
+                unwrapping={unwrapping}
+                onTap={unwrap}
+                disabled={unwrapping}
+              />
+              {unwrapping && <SparkleBurst colors={themeConfig.confettiColors} />}
+            </div>
 
             {openError ? (
               <div className="mt-8 flex flex-col items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-4">
                 <p className="text-sm text-destructive">
                   Something went wrong while unwrapping. Your gift is safe.
                 </p>
-                <button
+                <MobileButton
                   onClick={unwrap}
                   className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-soft"
                 >
-                  <RefreshCw className="h-4 w-4" /> Try again
-                </button>
+                  <RefreshCw className="h-4 w-4" /> Tap to try again
+                </MobileButton>
               </div>
             ) : (
               <p className="mt-12 text-xs text-muted-foreground">
@@ -246,18 +239,20 @@ function RevealPage() {
           </>
         ) : (
           <div className="w-full animate-reveal-rise">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-1.5 text-xs font-medium text-primary">
-              <Sparkles className="h-3.5 w-3.5" /> Just for you
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-card/80 backdrop-blur px-4 py-1.5 text-xs font-semibold shadow-soft">
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> {themeConfig.badgeText} {themeConfig.emoji}
             </div>
+
             {gift.creator_name && (
               <p
-                className="mb-2 animate-message-in text-sm font-medium uppercase tracking-widest text-muted-foreground"
+                className="mb-2 animate-message-in text-sm font-semibold uppercase tracking-widest text-muted-foreground"
                 style={{ animationDelay: "0.5s" }}
               >
                 From {gift.creator_name}
               </p>
             )}
-            <div className="rounded-3xl border border-border bg-card p-8 shadow-gift sm:p-12">
+
+            <div className={`rounded-3xl border ${themeConfig.cardAccentBorder} bg-card p-8 shadow-gift sm:p-12`}>
               {signedImages[0] && (
                 <img
                   src={signedImages[0]}
@@ -275,13 +270,12 @@ function RevealPage() {
               </p>
             </div>
 
-
             <Link
               to="/create"
-              className="mt-8 inline-flex animate-message-in items-center gap-2 rounded-full bg-gradient-warm px-6 py-3 text-sm font-medium text-primary-foreground shadow-gift transition-transform hover:scale-[1.03]"
+              className="mt-8 inline-flex animate-message-in items-center gap-2 rounded-full bg-gradient-warm px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-gift transition-transform hover:scale-[1.03]"
               style={{ animationDelay: "1.1s" }}
             >
-              <Gift className="h-4 w-4" /> Send one of your own
+              <Gift className="h-4 w-4" /> Create & send your own gift
             </Link>
           </div>
         )}
@@ -290,99 +284,24 @@ function RevealPage() {
   );
 }
 
-function GiftBox({ unwrapping }: { unwrapping: boolean }) {
-  return (
-    <div className="relative h-56 w-56 sm:h-72 sm:w-72">
-      {/* Warm halo glow — GPU-composited pulse (opacity/scale, no box-shadow).
-          Lighter blur keeps mobile GPUs from dropping frames. */}
-      {!unwrapping && (
-        <div
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[120%] w-[120%] animate-glow-pulse rounded-full blur-2xl"
-          style={{
-            background:
-              "radial-gradient(circle, oklch(0.75 0.18 30 / 0.55) 0%, transparent 65%)",
-          }}
-        />
-      )}
+/** Sparkle burst radiating from box center */
+function SparkleBurst({ colors }: { colors: string[] }) {
+  const sparkles = useMemo(() => {
+    const isSmall = typeof window !== "undefined" && window.innerWidth < 640;
+    const count = isSmall ? 10 : 16;
+    return Array.from({ length: count }).map((_, i) => {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+      const distance = 120 + Math.random() * 60;
+      return {
+        sx: `${Math.cos(angle) * distance}px`,
+        sy: `${Math.sin(angle) * distance}px`,
+        delay: `${Math.random() * 0.15}s`,
+        size: 6 + Math.floor(Math.random() * 8),
+        color: colors[i % colors.length],
+      };
+    });
+  }, [colors]);
 
-      {/* Halo pulse fires once when tapped */}
-      {unwrapping && (
-        <div
-          className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 animate-halo-pulse rounded-full"
-          style={{
-            background:
-              "radial-gradient(circle, oklch(0.80 0.14 85 / 0.7) 0%, transparent 70%)",
-          }}
-        />
-      )}
-
-      {/* Box body */}
-      <div
-        className={`absolute inset-x-0 bottom-0 top-16 rounded-2xl bg-gradient-warm shadow-gift ${
-          !unwrapping ? "animate-box-shake" : ""
-        }`}
-      >
-        {/* Vertical ribbon on the body */}
-        <div className="absolute left-1/2 top-0 h-full w-8 -translate-x-1/2 bg-[color:var(--gold)]/90" />
-      </div>
-
-      {/* Vertical ribbon on top of lid — flies off */}
-      <div
-        className={`absolute left-1/2 top-0 h-16 w-9 -translate-x-1/2 rounded-t-lg bg-[color:var(--gold)] ${
-          unwrapping ? "animate-ribbon-fly" : ""
-        }`}
-      />
-
-      {/* Lid */}
-      <div
-        className={`absolute inset-x-[-4%] top-8 h-20 rounded-xl bg-[oklch(0.55_0.22_15)] shadow-gift ${
-          unwrapping ? "animate-lid-pop" : ""
-        }`}
-      >
-        <div className="absolute left-1/2 top-0 h-full w-9 -translate-x-1/2 bg-[color:var(--gold)]" />
-      </div>
-
-      {/* Bow — flies with its own trajectory */}
-      <div
-        className={`absolute left-1/2 top-[-16px] -translate-x-1/2 ${
-          unwrapping ? "animate-bow-fly" : ""
-        }`}
-      >
-        <div className="relative h-10 w-16">
-          <div className="absolute left-0 top-0 h-10 w-8 rounded-full bg-[color:var(--gold)] shadow-soft" />
-          <div className="absolute right-0 top-0 h-10 w-8 rounded-full bg-[color:var(--gold)] shadow-soft" />
-          <div className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[oklch(0.65_0.18_75)]" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Sparkle burst radiating from the box center on tap.
- * Each sparkle gets a random unit vector and slight delay for organic feel.
- */
-function SparkleBurst() {
-  const sparkles = useMemo(
-    () =>
-      Array.from({ length: 14 }).map((_, i) => {
-        const angle = (Math.PI * 2 * i) / 14 + Math.random() * 0.6;
-        const distance = 120 + Math.random() * 60;
-        return {
-          sx: `${Math.cos(angle) * distance}px`,
-          sy: `${Math.sin(angle) * distance}px`,
-          delay: `${Math.random() * 0.15}s`,
-          size: 6 + Math.floor(Math.random() * 8),
-          color:
-            i % 3 === 0
-              ? "oklch(0.80 0.14 85)"
-              : i % 3 === 1
-                ? "oklch(0.72 0.17 25)"
-                : "oklch(0.99 0.01 75)",
-        };
-      }),
-    [],
-  );
   return (
     <div className="pointer-events-none absolute inset-0">
       {sparkles.map((s, i) => (
@@ -405,27 +324,15 @@ function SparkleBurst() {
   );
 }
 
-/**
- * Falling confetti with mixed shapes (rectangles, circles, thin ribbons).
- * Perf: piece count scales down on small screens, and the whole layer
- * unmounts once the animation finishes so nothing keeps compositing.
- */
-function Confetti() {
+/** Confetti particles with dynamic palette & mobile GPU optimization */
+function Confetti({ colors }: { colors: string[] }) {
   const [done, setDone] = useState(false);
 
   const pieces = useMemo(() => {
-    const colors = [
-      "oklch(0.72 0.17 25)",
-      "oklch(0.80 0.14 85)",
-      "oklch(0.66 0.20 15)",
-      "oklch(0.65 0.15 150)",
-      "oklch(0.62 0.20 350)",
-      "oklch(0.85 0.12 200)",
-    ];
     const isSmall = typeof window !== "undefined" && window.innerWidth < 640;
-    const count = isSmall ? 26 : 60;
+    const count = isSmall ? 24 : 50;
     return Array.from({ length: count }).map((_, i) => {
-      const shape = i % 3; // 0=rect, 1=circle, 2=thin ribbon
+      const shape = i % 3;
       const width = shape === 2 ? 3 : 6 + Math.random() * 8;
       const height = shape === 2 ? 18 + Math.random() * 10 : shape === 1 ? width : 10 + Math.random() * 10;
       return {
@@ -438,7 +345,7 @@ function Confetti() {
         radius: shape === 1 ? "9999px" : "2px",
       };
     });
-  }, []);
+  }, [colors]);
 
   useEffect(() => {
     const t = setTimeout(() => setDone(true), 6000);
@@ -469,9 +376,13 @@ function Confetti() {
   );
 }
 
-function AlreadyOpened({ gift }: { gift: GiftMeta }) {
+function AlreadyOpened({ gift, themeId }: { gift: GiftMeta; themeId: string }) {
+  const themeConfig = getThemeConfig(themeId);
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
+    <main
+      className="flex min-h-dvh items-center justify-center px-6"
+      style={{ background: themeConfig.bgGradient }}
+    >
       <div className="max-w-md rounded-3xl border border-border bg-card p-10 text-center shadow-soft">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-primary">
           <Lock className="h-6 w-6" />
@@ -484,9 +395,9 @@ function AlreadyOpened({ gift }: { gift: GiftMeta }) {
         </p>
         <Link
           to="/create"
-          className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-warm px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-soft"
+          className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-warm px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft"
         >
-          <Gift className="h-4 w-4" /> Send your own
+          <Gift className="h-4 w-4" /> Send your own gift
         </Link>
       </div>
     </main>

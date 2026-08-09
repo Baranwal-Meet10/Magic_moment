@@ -95,6 +95,7 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     min-height: 100vh;
+    min-height: 100dvh;
   }
 
   h1, h2, h3 {
@@ -166,6 +167,13 @@
   100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
 }
 
+@supports (height: 100dvh) {
+  @keyframes confetti-fall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100dvh) rotate(720deg); opacity: 0; }
+  }
+}
+
 @keyframes sparkle-burst {
   0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 1; }
   60%  { opacity: 1; }
@@ -222,5 +230,23 @@
   .animate-halo-pulse {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+/* Phones: drop blur-in (expensive) and calm continuous idle motion */
+@media (max-width: 639px) {
+  @keyframes message-in {
+    0%   { transform: translateY(12px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  .animate-glow-pulse {
+    animation: none;
+    opacity: 0.45;
+    transform: translate(-50%, -50%);
+  }
+
+  .animate-box-shake {
+    animation-duration: 2.8s;
   }
 }
