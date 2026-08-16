@@ -44,6 +44,19 @@ function safeUUID(): string {
   return "u" + Math.random().toString(36).slice(2, 11) + "-" + Date.now().toString(36);
 }
 
+function generateSlug(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const bytes = new Uint8Array(12);
+    crypto.getRandomValues(bytes);
+    let str = "";
+    for (let i = 0; i < bytes.length; i++) {
+      str += String.fromCharCode(bytes[i]);
+    }
+    return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  }
+  return "g-" + safeUUID().slice(0, 14);
+}
+
 function CreatePage() {
   const navigate = useNavigate();
   // --- Form state ---------------------------------------------------------
@@ -122,8 +135,10 @@ function CreatePage() {
         imageUrls = [uploadedPath];
       }
 
-      // 2. Insert gift row & generate slug server-side inside SECURITY DEFINER RPC.
+      // 2. Insert gift row via SECURITY DEFINER RPC.
+      const slug = generateSlug();
       const { data, error } = await supabase.rpc("create_gift", {
+        _slug: slug,
         _message: message.trim(),
         _creator_name: creatorName.trim() || "",
         _theme: theme,

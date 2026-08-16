@@ -23,8 +23,6 @@ export type MobileButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement>;
  */
 export const MobileButton = React.forwardRef<HTMLButtonElement, MobileButtonProps>(
   ({ className, style, onClick, disabled, children, ...props }, ref) => {
-    const isPressed = React.useRef(false);
-
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
       if (disabled) return;
       onClick?.(e);
@@ -39,10 +37,14 @@ export const MobileButton = React.forwardRef<HTMLButtonElement, MobileButtonProp
         style={{
           touchAction: "manipulation",
           WebkitTapHighlightColor: "transparent",
+          WebkitUserSelect: "none",
+          userSelect: "none",
+          WebkitTouchCallout: "none",
+          outline: "none",
           ...style,
         }}
         className={cn(
-          "min-h-[48px] touch-manipulation select-none transition-transform duration-100 active:scale-[0.97] disabled:opacity-60 disabled:pointer-events-none",
+          "min-h-[48px] touch-manipulation select-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 transition-transform duration-100 active:scale-[0.97] disabled:opacity-60 disabled:pointer-events-none",
           className
         )}
       >
@@ -95,9 +97,12 @@ export function MobileGiftBox({
   className,
 }: MobileGiftBoxProps) {
   const theme = getThemeConfig(themeId);
+  const lastTap = React.useRef(0);
 
-  const handleBoxClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
+  const handleTap = (e: React.SyntheticEvent) => {
+    const now = Date.now();
+    if (now - lastTap.current < 350) return;
+    lastTap.current = now;
     if (disabled || unwrapping) return;
     onTap?.();
   };
@@ -105,15 +110,25 @@ export function MobileGiftBox({
   return (
     <button
       type="button"
-      onClick={handleBoxClick}
+      onClick={handleTap}
+      onTouchEnd={(e) => {
+        if (!disabled && !unwrapping) {
+          e.preventDefault();
+          handleTap(e);
+        }
+      }}
       disabled={disabled || unwrapping}
       aria-label={`Unwrap gift (${theme.label} theme)`}
       style={{
         touchAction: "manipulation",
         WebkitTapHighlightColor: "transparent",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        WebkitTouchCallout: "none",
+        outline: "none",
       }}
       className={cn(
-        "relative z-10 mx-auto block cursor-pointer select-none p-4 focus:outline-none focus:ring-4 focus:ring-ring/30 rounded-3xl disabled:cursor-not-allowed",
+        "relative z-10 mx-auto block cursor-pointer select-none p-4 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ring-0 border-none rounded-3xl transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-80",
         className
       )}
     >
