@@ -63,7 +63,6 @@ export type Database = {
           _creator_name: string
           _image_urls: string[]
           _message: string
-          _slug: string
           _theme: string
         }
         Returns: string
