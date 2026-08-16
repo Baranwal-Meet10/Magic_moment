@@ -14,7 +14,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Gift, ArrowLeft, Image as ImageIcon, Loader2, Check, Copy, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { generateSlug } from "@/lib/slug";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 import { THEMES, getThemeConfig, type ThemeId } from "@/lib/theme";
@@ -90,7 +89,6 @@ function CreatePage() {
     if (raw.includes("name too long")) return "That name is a bit too long — try a shorter one.";
     if (raw.includes("invalid theme")) return "Please pick a theme.";
     if (raw.includes("too many images")) return "You can only add one photo.";
-    if (raw.includes("invalid slug")) return "Something went wrong. Please try again.";
     if (raw.includes("payload too large") || raw.includes("exceeded the maximum"))
       return `That photo is too large. Max ${MAX_MB}MB.`;
     if (raw.includes("network") || raw.includes("failed to fetch"))
@@ -98,7 +96,7 @@ function CreatePage() {
     return "Couldn't create the gift. Please try again.";
   };
 
-  // Create the gift: upload photo (if any), then insert the row via RPC.
+  // Create the gift: upload photo (if any), then insert the row via SECURITY DEFINER RPC.
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
@@ -108,32 +106,43 @@ function CreatePage() {
       return;
     }
     setSubmitting(true);
+    let uploadedPath: string | null = null;
     try {
-      const slug = generateSlug();
       let imageUrls: string[] = [];
 
-      // 1. Upload image to private bucket, keyed by slug.
+      // 1. Upload image to private bucket under a sanitized randomized path.
       if (imageFile) {
-        const ext = imageFile.name.split(".").pop() ?? "jpg";
-        const path = `${slug}/${safeUUID()}.${ext}`;
+        const rawExt = (imageFile.name.split(".").pop() ?? "jpg").toLowerCase();
+        const ext = ["jpg", "jpeg", "png", "webp"].includes(rawExt) ? rawExt : "jpg";
+        uploadedPath = `uploads/${safeUUID()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("gift-images")
-          .upload(path, imageFile, { contentType: imageFile.type, upsert: false });
+          .upload(uploadedPath, imageFile, { contentType: imageFile.type, upsert: false });
         if (upErr) throw upErr;
-        imageUrls = [path];
+        imageUrls = [uploadedPath];
       }
 
-      // 2. Insert the gift row via SECURITY DEFINER RPC.
-      const { error } = await supabase.rpc("create_gift", {
-        _slug: slug,
+      // 2. Insert gift row & generate slug server-side inside SECURITY DEFINER RPC.
+      const { data, error } = await supabase.rpc("create_gift", {
         _message: message.trim(),
         _creator_name: creatorName.trim() || "",
         _theme: theme,
         _image_urls: imageUrls,
       });
-      if (error) throw error;
 
-      setCreatedSlug(slug);
+      if (error) {
+        // Clean up orphaned storage object if RPC creation failed
+        if (uploadedPath) {
+          await supabase.storage.from("gift-images").remove([uploadedPath]).catch(() => { });
+        }
+        throw error;
+      }
+
+      if (!data || typeof data !== "string") {
+        throw new Error("Invalid response from server");
+      }
+
+      setCreatedSlug(data);
     } catch (err) {
       console.error("[create] gift creation failed", err);
       toast.error(friendlyError(err));
@@ -221,11 +230,10 @@ function CreatePage() {
                   key={t.id}
                   onClick={() => setTheme(t.id)}
                   style={{ touchAction: "manipulation" }}
-                  className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border-2 p-2.5 transition active:scale-[0.97] ${
-                    theme === t.id
+                  className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border-2 p-2.5 transition active:scale-[0.97] ${theme === t.id
                       ? "border-primary bg-secondary shadow-sm"
                       : "border-border bg-background hover:border-input"
-                  }`}
+                    }`}
                 >
                   <div className={`h-7 w-7 rounded-full shadow-inner ${t.swatch} flex items-center justify-center text-xs`}>
                     {t.emoji}
