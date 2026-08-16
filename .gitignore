@@ -7,6 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies and Build Outputs
 node_modules
 dist
 dist-ssr
@@ -14,8 +15,17 @@ dist-ssr
 .vinxi
 .tanstack/**
 .nitro
-*.local
+
+# Environment & Secret Files
 .env
+.env.*
+!.env.example
+*.local
+.dev.vars
+*.pem
+*.key
+*.crt
+*.pfx
 
 # Supabase
 supabase/config.toml
@@ -24,13 +34,17 @@ supabase/.branches/
 
 # Wrangler / Cloudflare
 .wrangler/
-.dev.vars
+
+# System / OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
@@ -45,3 +59,4 @@ npm-ls*.err
 install-exists.txt
 repo-files.txt
 repo-root.txt
+
