@@ -38,12 +38,13 @@ BEGIN
   BEGIN
     v_headers := current_setting('request.headers', true)::json;
     v_header_ip := coalesce(
-      v_headers->>'x-forwarded-for',
+      v_headers->>'cf-connecting-ip',
       v_headers->>'x-real-ip',
-      v_headers->>'cf-connecting-ip'
+      v_headers->>'x-forwarded-for'
     );
     IF v_header_ip IS NOT NULL THEN
-      v_header_ip := split_part(v_header_ip, ',', 1);
+      -- Taking the last entry in comma-separated list guarantees taking the IP appended by trusted edge proxy
+      v_header_ip := btrim(split_part(v_header_ip, ',', array_length(string_to_array(v_header_ip, ','), 1)));
       v_ip := v_header_ip::inet;
     END IF;
   EXCEPTION WHEN OTHERS THEN
