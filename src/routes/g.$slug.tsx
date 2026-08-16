@@ -153,7 +153,10 @@ function RevealPage() {
         unwrapLock.current = false;
         setUnwrapping(false);
         setOpenError(true);
-        toast.error("Couldn't open the gift right now. Please try again.");
+        const msg = error.message?.toLowerCase().includes("rate limit exceeded")
+          ? "Too many requests. Please wait a minute and try again."
+          : "Couldn't open the gift right now. Please try again.";
+        toast.error(msg);
         return;
       }
 
