@@ -260,7 +260,4 @@ ON CONFLICT (id) DO UPDATE SET
 DROP POLICY IF EXISTS "Anyone can upload gift images" ON storage.objects;
 CREATE POLICY "Anyone can upload gift images" ON storage.objects
   FOR INSERT TO anon, authenticated
-  WITH CHECK (
-    bucket_id = 'gift-images' AND
-    octet_length(file) <= 5242880
-  );
+  WITH CHECK (bucket_id = 'gift-images');
