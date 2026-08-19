@@ -81,3 +81,6 @@ _(Anything currently stuck, and why.)_
 _(Always fill this in before ending a session — the single most useful line in this file.)_
 
 - _(e.g. "Finish create-gift form validation, then wire up slug generation")_
+
+
+_(this is it i have finish the project we will look forward in future it was fun to work on it happy journey .)_
