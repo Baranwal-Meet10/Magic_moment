@@ -106,6 +106,87 @@ function LoaderError() {
   );
 }
 
+/** Helper to normalize raw image_urls data into string array */
+function parseImagePaths(raw: unknown): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("data:")) return [trimmed];
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      return trimmed
+        .slice(1, -1)
+        .split(",")
+        .map((s) => s.replace(/^"/, "").replace(/"$/, "").trim())
+        .filter(Boolean);
+    }
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+      } catch {
+        // ignore
+      }
+    }
+    if (trimmed.length > 0) return [trimmed];
+  }
+  return [];
+}
+
+/**
+ * Safely resolves gift image paths to displayable URLs with multi-tier fallback:
+ * 1. If path is already a Data URL, Blob URL, or HTTP(S) URL, return directly.
+ * 2. Attempt server-side signed URL issuance via getGiftImageUrls server function.
+ * 3. Fallback to client-side Supabase storage signed URL / public URL.
+ */
+async function resolveGiftImageUrls(slug: string, rawPaths: unknown): Promise<string[]> {
+  const paths = parseImagePaths(rawPaths);
+  if (paths.length === 0) return [];
+
+  const resolved: string[] = [];
+
+  for (const path of paths) {
+    if (!path) continue;
+
+    if (
+      path.startsWith("data:") ||
+      path.startsWith("blob:") ||
+      path.startsWith("http://") ||
+      path.startsWith("https://")
+    ) {
+      resolved.push(path);
+      continue;
+    }
+
+    try {
+      const res = await getGiftImageUrls({ data: { slug } });
+      if (res?.urls && res.urls.length > 0) {
+        resolved.push(...res.urls);
+        continue;
+      }
+    } catch (err) {
+      console.warn("[reveal] Server image URL signing failed, falling back to client resolution:", err);
+    }
+
+    try {
+      const { data, error } = await supabase.storage.from("gift-images").createSignedUrl(path, 60 * 60);
+      if (!error && data?.signedUrl) {
+        resolved.push(data.signedUrl);
+        continue;
+      }
+    } catch {
+      // Ignore error and try public URL next
+    }
+
+    const { data: pubData } = supabase.storage.from("gift-images").getPublicUrl(path);
+    if (pubData?.publicUrl) {
+      resolved.push(pubData.publicUrl);
+    }
+  }
+
+  return resolved;
+}
+
 function RevealPage() {
   const { gift } = Route.useLoaderData();
   const themeConfig = useMemo(() => getThemeConfig(gift.theme), [gift.theme]);
@@ -124,20 +205,18 @@ function RevealPage() {
   } | null>(null);
 
   useEffect(() => {
-    if (!opened || !revealed?.image_urls?.length) return;
+    if (!opened || !revealed?.image_urls?.length || signedImages.length > 0) return;
     let cancelled = false;
     (async () => {
-      try {
-        const { urls } = await getGiftImageUrls({ data: { slug: gift.slug } });
-        if (!cancelled) setSignedImages(urls);
-      } catch (err) {
-        console.warn("[reveal] image sign failed", err);
+      const urls = await resolveGiftImageUrls(gift.slug, revealed.image_urls);
+      if (!cancelled && urls.length > 0) {
+        setSignedImages(urls);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [opened, revealed, gift.slug]);
+  }, [opened, revealed, gift.slug, signedImages.length]);
 
   const unwrap = async () => {
     if (unwrapLock.current || unwrapping || opened) return;
@@ -169,7 +248,16 @@ function RevealPage() {
         return;
       }
 
-      setRevealed({ message: row.message, image_urls: row.image_urls ?? [] });
+      const rawImagePaths = parseImagePaths(row.image_urls);
+      setRevealed({ message: row.message, image_urls: rawImagePaths });
+
+      // Immediately resolve image URLs during the 900ms lid opening animation
+      if (rawImagePaths.length > 0) {
+        resolveGiftImageUrls(gift.slug, rawImagePaths).then((urls) => {
+          setSignedImages(urls);
+        });
+      }
+
       setTimeout(() => setOpened(true), 900);
     } catch (err) {
       console.error("[reveal] unexpected error", err);
@@ -256,15 +344,24 @@ function RevealPage() {
             )}
 
             <div className={`rounded-3xl border ${themeConfig.cardAccentBorder} bg-card p-8 shadow-gift sm:p-12`}>
-              {signedImages[0] && (
+              {signedImages[0] ? (
                 <img
                   src={signedImages[0]}
-                  alt="Gift"
-                  onError={(e) => ((e.currentTarget.style.display = "none"))}
-                  className="mx-auto mb-6 max-h-96 w-full animate-message-in rounded-2xl object-cover"
+                  alt="Gift photo"
+                  onError={(e) => {
+                    console.warn("[reveal] image load warning for URL:", signedImages[0]);
+                  }}
+                  className="mx-auto mb-6 max-h-96 w-full animate-message-in rounded-2xl object-cover shadow-sm"
                   style={{ animationDelay: "0.6s" }}
                 />
-              )}
+              ) : (revealed?.image_urls?.length ?? 0) > 0 ? (
+                <div
+                  className="mx-auto mb-6 flex h-64 w-full animate-pulse items-center justify-center rounded-2xl bg-muted/30"
+                  style={{ animationDelay: "0.6s" }}
+                >
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : null}
               <p
                 className="animate-message-in whitespace-pre-wrap font-display text-2xl leading-relaxed text-foreground sm:text-3xl"
                 style={{ animationDelay: "0.8s" }}

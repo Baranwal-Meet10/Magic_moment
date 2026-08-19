@@ -57,6 +57,48 @@ function generateSlug(): string {
   return "g-" + safeUUID().slice(0, 14);
 }
 
+/**
+ * Converts a File object to an optimized Data URL string (max 1000px width/height, compressed WebP).
+ * Acts as a 100% fail-safe fallback when Supabase storage buckets are not initialized.
+ */
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (!result) return resolve("");
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        const maxDim = 1000;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/webp", 0.82));
+        } else {
+          resolve(result);
+        }
+      };
+      img.onerror = () => resolve(result);
+      img.src = result;
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+}
+
 function CreatePage() {
   const navigate = useNavigate();
   // --- Form state ---------------------------------------------------------
@@ -123,16 +165,29 @@ function CreatePage() {
     try {
       let imageUrls: string[] = [];
 
-      // 1. Upload image to private bucket under a sanitized randomized path.
+      // 1. Upload image to bucket under a randomized path, with data URL fallback.
       if (imageFile) {
-        const rawExt = (imageFile.name.split(".").pop() ?? "jpg").toLowerCase();
-        const ext = ["jpg", "jpeg", "png", "webp"].includes(rawExt) ? rawExt : "jpg";
-        uploadedPath = `uploads/${safeUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("gift-images")
-          .upload(uploadedPath, imageFile, { contentType: imageFile.type, upsert: false });
-        if (upErr) throw upErr;
-        imageUrls = [uploadedPath];
+        try {
+          const rawExt = (imageFile.name.split(".").pop() ?? "jpg").toLowerCase();
+          const ext = ["jpg", "jpeg", "png", "webp"].includes(rawExt) ? rawExt : "jpg";
+          uploadedPath = `uploads/${safeUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("gift-images")
+            .upload(uploadedPath, imageFile, { contentType: imageFile.type, upsert: false });
+          if (!upErr) {
+            imageUrls = [uploadedPath];
+          } else {
+            console.warn("[create] Supabase storage upload failed, converting photo to Data URL:", upErr.message);
+            const dataUrl = await fileToDataUrl(imageFile);
+            if (dataUrl) imageUrls = [dataUrl];
+            uploadedPath = null;
+          }
+        } catch (storageErr) {
+          console.warn("[create] Storage exception, converting photo to Data URL:", storageErr);
+          const dataUrl = await fileToDataUrl(imageFile);
+          if (dataUrl) imageUrls = [dataUrl];
+          uploadedPath = null;
+        }
       }
 
       // 2. Insert gift row via SECURITY DEFINER RPC (slug generated server-side).
