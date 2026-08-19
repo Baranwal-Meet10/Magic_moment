@@ -60,11 +60,10 @@ export type Database = {
     Functions: {
       create_gift: {
         Args: {
-          _slug?: string
-          _creator_name: string
-          _image_urls: string[]
           _message: string
+          _creator_name: string
           _theme: string
+          _image_urls: string[]
         }
         Returns: string
       }

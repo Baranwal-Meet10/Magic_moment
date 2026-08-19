@@ -135,10 +135,8 @@ function CreatePage() {
         imageUrls = [uploadedPath];
       }
 
-      // 2. Insert gift row via SECURITY DEFINER RPC.
-      const slug = generateSlug();
+      // 2. Insert gift row via SECURITY DEFINER RPC (slug generated server-side).
       const { data, error } = await supabase.rpc("create_gift", {
-        _slug: slug,
         _message: message.trim(),
         _creator_name: creatorName.trim() || "",
         _theme: theme,
