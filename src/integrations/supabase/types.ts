@@ -24,6 +24,7 @@ export type Database = {
           message: string
           open_policy: string
           opened_at: string | null
+          photo_deleted_at?: string | null
           slug: string
           theme: string
         }
@@ -36,6 +37,7 @@ export type Database = {
           message: string
           open_policy?: string
           opened_at?: string | null
+          photo_deleted_at?: string | null
           slug: string
           theme?: string
         }
@@ -48,6 +50,7 @@ export type Database = {
           message?: string
           open_policy?: string
           opened_at?: string | null
+          photo_deleted_at?: string | null
           slug?: string
           theme?: string
         }
