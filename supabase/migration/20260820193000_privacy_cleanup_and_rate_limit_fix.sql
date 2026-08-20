@@ -254,7 +254,7 @@ $$;
 REVOKE ALL ON FUNCTION public.cleanup_expired_gifts_and_photos() FROM public;
 GRANT EXECUTE ON FUNCTION public.cleanup_expired_gifts_and_photos() TO service_role;
 
-DO $$
+DO $do$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') OR
      EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_cron') THEN
@@ -263,10 +263,10 @@ BEGIN
     PERFORM cron.schedule(
       'gift_privacy_cleanup',
       '*/15 * * * *',
-      $$SELECT public.cleanup_expired_gifts_and_photos()$$
+      $cron$SELECT public.cleanup_expired_gifts_and_photos()$cron$
     );
   END IF;
 EXCEPTION WHEN OTHERS THEN
   NULL;
 END;
-$$;
+$do$;
