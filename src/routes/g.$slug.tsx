@@ -14,12 +14,13 @@
 // ---------------------------------------------------------------------------
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Gift, Lock, Sparkles, AlertTriangle, RefreshCw } from "lucide-react";
+import { Gift, Lock, Sparkles, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGiftImageUrls } from "@/lib/gift-images.functions";
 import { getThemeConfig } from "@/lib/theme";
 import { MobileGiftBox, MobileButton } from "@/components/mobile-touch";
+import { logDevError, parseSupabaseError } from "@/lib/dev-logger";
 
 type GiftMeta = {
   slug: string;
@@ -38,7 +39,10 @@ export const Route = createFileRoute("/g/$slug")({
     const { data, error } = await supabase.rpc("get_gift_by_slug", {
       _slug: params.slug,
     });
-    if (error) throw error;
+    if (error) {
+      logDevError("g.$slug.tsx -> loader get_gift_by_slug", error);
+      throw error;
+    }
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw notFound();
     return { gift: row as unknown as GiftMeta };
@@ -165,7 +169,7 @@ async function resolveGiftImageUrls(slug: string, rawPaths: unknown): Promise<st
         continue;
       }
     } catch (err) {
-      console.warn("[reveal] Server image URL signing failed, falling back to client resolution:", err);
+      logDevError("resolveGiftImageUrls -> server getGiftImageUrls failed", err);
     }
 
     try {
@@ -174,8 +178,8 @@ async function resolveGiftImageUrls(slug: string, rawPaths: unknown): Promise<st
         resolved.push(data.signedUrl);
         continue;
       }
-    } catch {
-      // Ignore error and try public URL next
+    } catch (err) {
+      logDevError("resolveGiftImageUrls -> client storage.createSignedUrl exception", err);
     }
 
     const { data: pubData } = supabase.storage.from("gift-images").getPublicUrl(path);
@@ -198,6 +202,7 @@ function RevealPage() {
 
   // Sync lock so multiple taps or network delays can't double-call open_gift.
   const unwrapLock = useRef(false);
+  const isFetchingImagesRef = useRef(false);
 
   const [revealed, setRevealed] = useState<{
     message: string;
@@ -205,12 +210,17 @@ function RevealPage() {
   } | null>(null);
 
   useEffect(() => {
-    if (!opened || !revealed?.image_urls?.length || signedImages.length > 0) return;
+    if (!opened || !revealed?.image_urls?.length || signedImages.length > 0 || isFetchingImagesRef.current) return;
     let cancelled = false;
+    isFetchingImagesRef.current = true;
     (async () => {
-      const urls = await resolveGiftImageUrls(gift.slug, revealed.image_urls);
-      if (!cancelled && urls.length > 0) {
-        setSignedImages(urls);
+      try {
+        const urls = await resolveGiftImageUrls(gift.slug, revealed.image_urls);
+        if (!cancelled && urls.length > 0) {
+          setSignedImages(urls);
+        }
+      } finally {
+        isFetchingImagesRef.current = false;
       }
     })();
     return () => {
@@ -225,42 +235,82 @@ function RevealPage() {
     setOpenError(false);
 
     try {
+      // 1. Primary open_gift RPC call
       const { data, error } = await supabase.rpc("open_gift", { _slug: gift.slug });
 
+      if (!error && data) {
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row?.was_opened && row?.message) {
+          const rawImagePaths = parseImagePaths(row.image_urls);
+          setRevealed({ message: row.message, image_urls: rawImagePaths });
+          setTimeout(() => setOpened(true), 900);
+          return;
+        }
+      }
+
+      // Log dev error for primary open_gift call failure
       if (error) {
-        console.error("[reveal] open_gift failed", error);
-        unwrapLock.current = false;
-        setUnwrapping(false);
-        setOpenError(true);
-        const msg = error.message?.toLowerCase().includes("rate limit exceeded")
-          ? "Too many requests. Please wait a minute and try again."
-          : "Couldn't open the gift right now. Please try again.";
-        toast.error(msg);
-        return;
+        logDevError("g.$slug.tsx -> open_gift primary call failed", error);
       }
 
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row?.was_opened || !row?.message) {
-        unwrapLock.current = false;
-        setUnwrapping(false);
-        toast.info("This gift was just opened somewhere else.");
-        window.location.reload();
-        return;
+      // 2. RECOVERY FLOW FOR NETWORK/RESPONSE FAILURES:
+      // Do NOT blindly call open_gift again! First query get_gift_by_slug to inspect DB state.
+      const { data: checkData, error: checkError } = await supabase.rpc("get_gift_by_slug", {
+        _slug: gift.slug,
+      });
+
+      if (checkError) {
+        logDevError("g.$slug.tsx -> get_gift_by_slug recovery check failed", checkError);
       }
 
-      const rawImagePaths = parseImagePaths(row.image_urls);
-      setRevealed({ message: row.message, image_urls: rawImagePaths });
+      const checkRow = Array.isArray(checkData) ? checkData[0] : checkData;
 
-      // Immediately resolve image URLs during the 900ms lid opening animation
-      if (rawImagePaths.length > 0) {
-        resolveGiftImageUrls(gift.slug, rawImagePaths).then((urls) => {
-          setSignedImages(urls);
+      if (checkRow && checkRow.is_opened) {
+        // The database update succeeded despite initial client response loss!
+        // Retrieve revealed content by calling open_gift once (now confirmed safe/opened in DB).
+        const { data: retryData, error: retryError } = await supabase.rpc("open_gift", {
+          _slug: gift.slug,
         });
+
+        const retryRow = Array.isArray(retryData) ? retryData[0] : retryData;
+        if (!retryError && retryRow?.message) {
+          const rawImagePaths = parseImagePaths(retryRow.image_urls);
+          setRevealed({ message: retryRow.message, image_urls: rawImagePaths });
+          setOpened(true);
+          toast.success("Gift opened!");
+          return;
+        }
       }
 
-      setTimeout(() => setOpened(true), 900);
+      // If DB state shows is_opened = false or recovery failed:
+      unwrapLock.current = false;
+      setUnwrapping(false);
+      setOpenError(true);
+
+      const parsed = parseSupabaseError(error || checkError, "Couldn't open the gift right now. Please try again.");
+      toast.error(parsed.userMessage);
     } catch (err) {
-      console.error("[reveal] unexpected error", err);
+      logDevError("g.$slug.tsx -> unwrap unexpected exception", err);
+
+      // Exception recovery: inspect DB state before giving up
+      try {
+        const { data: checkData } = await supabase.rpc("get_gift_by_slug", { _slug: gift.slug });
+        const checkRow = Array.isArray(checkData) ? checkData[0] : checkData;
+        if (checkRow && checkRow.is_opened) {
+          const { data: retryData } = await supabase.rpc("open_gift", { _slug: gift.slug });
+          const retryRow = Array.isArray(retryData) ? retryData[0] : retryData;
+          if (retryRow?.message) {
+            const rawImagePaths = parseImagePaths(retryRow.image_urls);
+            setRevealed({ message: retryRow.message, image_urls: rawImagePaths });
+            setOpened(true);
+            toast.success("Gift opened!");
+            return;
+          }
+        }
+      } catch (checkErr) {
+        logDevError("g.$slug.tsx -> catch recovery check failed", checkErr);
+      }
+
       unwrapLock.current = false;
       setUnwrapping(false);
       setOpenError(true);

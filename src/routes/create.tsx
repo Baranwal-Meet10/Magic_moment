@@ -11,13 +11,14 @@
 //                      not a public URL — reveal page signs it on demand.
 // ---------------------------------------------------------------------------
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Gift, ArrowLeft, Image as ImageIcon, Loader2, Check, Copy, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 import { THEMES, getThemeConfig, type ThemeId } from "@/lib/theme";
 import { MobileButton, MobileGiftBox } from "@/components/mobile-touch";
+import { logDevError, parseSupabaseError } from "@/lib/dev-logger";
 
 export const Route = createFileRoute("/create")({
   component: CreatePage,
@@ -57,48 +58,6 @@ function generateSlug(): string {
   return "g-" + safeUUID().slice(0, 14);
 }
 
-/**
- * Converts a File object to an optimized Data URL string (max 1000px width/height, compressed WebP).
- * Acts as a 100% fail-safe fallback when Supabase storage buckets are not initialized.
- */
-async function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (!result) return resolve("");
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let { width, height } = img;
-        const maxDim = 1000;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL("image/webp", 0.82));
-        } else {
-          resolve(result);
-        }
-      };
-      img.onerror = () => resolve(result);
-      img.src = result;
-    };
-    reader.onerror = () => resolve("");
-    reader.readAsDataURL(file);
-  });
-}
-
 function CreatePage() {
   const navigate = useNavigate();
   // --- Form state ---------------------------------------------------------
@@ -107,8 +66,9 @@ function CreatePage() {
   const [theme, setTheme] = useState<ThemeId>("birthday");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  // --- Submit state -------------------------------------------------------
+  // --- Submit state & synchronous submission lock -------------------------
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
 
   const selectedThemeConfig = getThemeConfig(theme);
@@ -132,62 +92,47 @@ function CreatePage() {
     setPreview(URL.createObjectURL(f));
   };
 
-  // Map a raw RPC/upload error to a user-friendly, non-leaking message.
-  const friendlyError = (err: unknown): string => {
-    const raw =
-      (err && typeof err === "object" && "message" in err
-        ? String((err as { message?: unknown }).message ?? "")
-        : ""
-      ).toLowerCase();
-    if (raw.includes("message too long")) return "Your message is too long. Please shorten it.";
-    if (raw.includes("message required")) return "Please add a message before sending.";
-    if (raw.includes("name too long")) return "That name is a bit too long — try a shorter one.";
-    if (raw.includes("invalid theme")) return "Please pick a theme.";
-    if (raw.includes("too many images")) return "You can only add one photo.";
-    if (raw.includes("payload too large") || raw.includes("exceeded the maximum"))
-      return `That photo is too large. Max ${MAX_MB}MB.`;
-    if (raw.includes("network") || raw.includes("failed to fetch"))
-      return "Network issue. Check your connection and try again.";
-    return "Couldn't create the gift. Please try again.";
-  };
-
   // Create the gift: upload photo (if any), then insert the row via SECURITY DEFINER RPC.
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
+
+    // Synchronous double-submit lock to prevent rapid double-clicks
+    if (submittingRef.current || submitting) return;
 
     if (!message.trim()) {
       toast.error("Add a message first.");
       return;
     }
+
+    submittingRef.current = true;
     setSubmitting(true);
     let uploadedPath: string | null = null;
+
     try {
       let imageUrls: string[] = [];
 
-      // 1. Upload image to bucket under a randomized path, with data URL fallback.
+      // 1. Upload image to Supabase Storage bucket under a randomized path.
       if (imageFile) {
-        try {
-          const rawExt = (imageFile.name.split(".").pop() ?? "jpg").toLowerCase();
-          const ext = ["jpg", "jpeg", "png", "webp"].includes(rawExt) ? rawExt : "jpg";
-          uploadedPath = `uploads/${safeUUID()}.${ext}`;
-          const { error: upErr } = await supabase.storage
-            .from("gift-images")
-            .upload(uploadedPath, imageFile, { contentType: imageFile.type, upsert: false });
-          if (!upErr) {
-            imageUrls = [uploadedPath];
-          } else {
-            console.warn("[create] Supabase storage upload failed, converting photo to Data URL:", upErr.message);
-            const dataUrl = await fileToDataUrl(imageFile);
-            if (dataUrl) imageUrls = [dataUrl];
-            uploadedPath = null;
-          }
-        } catch (storageErr) {
-          console.warn("[create] Storage exception, converting photo to Data URL:", storageErr);
-          const dataUrl = await fileToDataUrl(imageFile);
-          if (dataUrl) imageUrls = [dataUrl];
-          uploadedPath = null;
+        const rawExt = (imageFile.name.split(".").pop() ?? "jpg").toLowerCase();
+        const ext = ["jpg", "jpeg", "png", "webp"].includes(rawExt) ? rawExt : "jpg";
+        uploadedPath = `uploads/${safeUUID()}.${ext}`;
+
+        const { data: upData, error: upErr } = await supabase.storage
+          .from("gift-images")
+          .upload(uploadedPath, imageFile, { contentType: imageFile.type, upsert: false });
+
+        if (upErr) {
+          logDevError("create.tsx -> storage.upload", upErr);
+          const parsed = parseSupabaseError(upErr, "Photo upload failed. Please try again.");
+          toast.error(parsed.userMessage);
+          // HALT EXECUTION: Do NOT create the gift if photo upload failed!
+          return;
         }
+
+        if (upData?.path) {
+          uploadedPath = upData.path;
+        }
+        imageUrls = [uploadedPath];
       }
 
       // 2. Insert gift row via SECURITY DEFINER RPC (slug generated server-side).
@@ -199,11 +144,17 @@ function CreatePage() {
       });
 
       if (error) {
+        logDevError("create.tsx -> rpc.create_gift", error);
         // Clean up orphaned storage object if RPC creation failed
         if (uploadedPath) {
-          await supabase.storage.from("gift-images").remove([uploadedPath]).catch(() => { });
+          await supabase.storage
+            .from("gift-images")
+            .remove([uploadedPath])
+            .catch((cleanupErr) => logDevError("create.tsx -> storage.remove orphan", cleanupErr));
         }
-        throw error;
+        const parsed = parseSupabaseError(error, "Couldn't create the gift. Please try again.");
+        toast.error(parsed.userMessage);
+        return;
       }
 
       if (!data || typeof data !== "string") {
@@ -212,9 +163,11 @@ function CreatePage() {
 
       setCreatedSlug(data);
     } catch (err) {
-      console.error("[create] gift creation failed", err);
-      toast.error(friendlyError(err));
+      logDevError("create.tsx -> submit exception", err);
+      const parsed = parseSupabaseError(err, "Couldn't create the gift. Please try again.");
+      toast.error(parsed.userMessage);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };

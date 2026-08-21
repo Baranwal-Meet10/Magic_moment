@@ -101,7 +101,7 @@ export function MobileGiftBox({
 
   const handleTap = (e: React.SyntheticEvent) => {
     const now = Date.now();
-    if (now - lastTap.current < 350) return;
+    if (now - lastTap.current < 400) return;
     lastTap.current = now;
     if (disabled || unwrapping) return;
     onTap?.();
@@ -111,12 +111,6 @@ export function MobileGiftBox({
     <button
       type="button"
       onClick={handleTap}
-      onTouchEnd={(e) => {
-        if (!disabled && !unwrapping) {
-          e.preventDefault();
-          handleTap(e);
-        }
-      }}
       disabled={disabled || unwrapping}
       aria-label={`Unwrap gift (${theme.label} theme)`}
       style={{

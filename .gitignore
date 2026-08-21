@@ -26,6 +26,8 @@ dist-ssr
 *.key
 *.crt
 *.pfx
+.postman 
+
 
 # Supabase
 supabase/config.toml
