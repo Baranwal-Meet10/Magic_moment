@@ -154,3 +154,73 @@ Notes:
 - Update `6_MEMORY.md` after every work session.
 - Review `3_RULES.md` "Definition of Done" before marking a step complete.
 - Keep phase order. Most steps depend on the previous one.
+
+
+
+new theme
+
+### Antigravity Prompt — Gift Wrapping Loading Video
+
+Add my existing **gift-wrapping video** to the Magic Moment website and use it as the loading screen while a gift is being created.
+
+### Required behavior
+
+When the user clicks **“Create Gift”**:
+
+1. Immediately show a beautiful **full-screen loading/transition screen**.
+2. Play my provided gift-wrapping video in the center of the screen.
+3. The video should **loop continuously** if it finishes before the gift is ready.
+4. Keep the video playing **until the actual gift creation process is completely successful**.
+5. Do NOT use a fake fixed delay such as 3, 5, or 10 seconds.
+6. The loading screen must remain visible while:
+
+   * The image is uploading to Supabase Storage (if an image was selected).
+   * The `create_gift()` Supabase RPC is executing.
+   * The gift slug/link is being generated.
+   * The final gift URL is being prepared.
+7. As soon as the real backend operation succeeds, smoothly transition from the video to the **“Your Magic Moment is Ready ✨”** screen containing the generated link and copy/share options.
+
+### Video handling
+
+* Use the video file I provide; **do not replace it with another animation**.
+* Preserve its original aspect ratio.
+* Make it responsive for desktop and mobile.
+* Do not stretch or distort the video.
+* Keep the video visually centered.
+* Use `object-fit: contain` where appropriate.
+* Add a subtle, elegant background matching the existing Magic Moment design.
+* Make sure the video does not block or interfere with the actual gift creation API requests.
+
+### Error handling
+
+If gift creation fails:
+
+* Stop the loading state.
+* Keep the user on the creation page or show a clear error state.
+* Display a friendly message such as:
+  **“Something went wrong while creating your Magic Moment. Please try again.”**
+* Provide a **Retry** button.
+* Do not create duplicate gifts when the user retries.
+* Do not upload duplicate images unnecessarily.
+
+### Important reliability requirements
+
+* Disable the **Create Gift** button while creation is in progress.
+* Prevent double-clicks and duplicate API calls.
+* Properly `await` the image upload before calling `create_gift()`.
+* Only show the success/link screen after the backend confirms successful creation.
+* If the network response is temporarily lost after the backend operation may have succeeded, recover safely instead of blindly creating another gift.
+* Preserve the existing Supabase security model, RLS, private Storage, rate limiting, expiry rules, and existing gift-opening behavior.
+* Do not expose Supabase service-role keys or other secrets in frontend code.
+
+### UX
+
+Make the transition feel like part of the Magic Moment experience:
+
+**Create Gift → Gift Wrapping Video → Gift Successfully Created → Your Magic Moment is Ready ✨**
+
+Use a smooth fade/scale transition between the loading video and the success screen.
+
+Do not redesign unrelated parts of the website. Only modify the gift-creation loading flow and the minimum components required to integrate the video correctly.
+
+First inspect the existing project structure and current gift creation flow, then implement this cleanly using the existing architecture and styling.

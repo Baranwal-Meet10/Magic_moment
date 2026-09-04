@@ -186,73 +186,78 @@ BEGIN
 END;
 $$;
 
--- 7. Automatic Server-side Privacy Cleanup Function
+-- 7. Automatic Server-side Privacy Cleanup Function (Optimized Set-Based Operations)
 CREATE OR REPLACE FUNCTION public.cleanup_expired_gifts_and_photos()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, storage
 AS $$
-DECLARE
-  v_gift RECORD;
-  v_img TEXT;
 BEGIN
   -----------------------------------------------------------------------------
   -- Rule 1: Unopened gifts NOT opened within 48 hours
-  -- Delete photos from private bucket & delete entire gift record.
+  -- Bulk delete photos from private bucket & bulk delete entire gift records.
   -----------------------------------------------------------------------------
-  FOR v_gift IN
-    SELECT id, image_urls
-    FROM public.gifts
-    WHERE is_opened = false
-      AND created_at < (now() - INTERVAL '48 hours')
-  LOOP
-    IF v_gift.image_urls IS NOT NULL AND array_length(v_gift.image_urls, 1) > 0 THEN
-      FOREACH v_img IN ARRAY v_gift.image_urls LOOP
-        IF v_img NOT LIKE 'data:%' AND v_img NOT LIKE 'http%' THEN
-          DELETE FROM storage.objects
-          WHERE bucket_id = 'gift-images'
-            AND (name = v_img OR name = ltrim(v_img, '/'));
-        END IF;
-      END LOOP;
-    END IF;
+  DELETE FROM storage.objects
+  WHERE bucket_id = 'gift-images'
+    AND name IN (
+      SELECT ltrim(btrim(img), '/')
+      FROM public.gifts g,
+           unnest(g.image_urls) AS img
+      WHERE g.is_opened = false
+        AND g.created_at < (now() - INTERVAL '48 hours')
+        AND img IS NOT NULL
+        AND btrim(img) <> ''
+        AND img NOT LIKE 'data:%'
+        AND img NOT LIKE 'http%'
+    );
 
-    DELETE FROM public.gifts WHERE id = v_gift.id;
-  END LOOP;
+  DELETE FROM public.gifts
+  WHERE is_opened = false
+    AND created_at < (now() - INTERVAL '48 hours');
 
   -----------------------------------------------------------------------------
   -- Rule 2: Opened gifts opened > 24 hours ago
-  -- Delete photos from private bucket, remove photo URLs from DB, record photo_deleted_at, keep gift & message.
+  -- Bulk delete photos from private bucket, remove photo URLs from DB, record photo_deleted_at, keep gift & message.
   -----------------------------------------------------------------------------
-  FOR v_gift IN
-    SELECT id, image_urls
-    FROM public.gifts
-    WHERE is_opened = true
-      AND opened_at IS NOT NULL
-      AND opened_at < (now() - INTERVAL '24 hours')
-      AND photo_deleted_at IS NULL
-  LOOP
-    IF v_gift.image_urls IS NOT NULL AND array_length(v_gift.image_urls, 1) > 0 THEN
-      FOREACH v_img IN ARRAY v_gift.image_urls LOOP
-        IF v_img NOT LIKE 'data:%' AND v_img NOT LIKE 'http%' THEN
-          DELETE FROM storage.objects
-          WHERE bucket_id = 'gift-images'
-            AND (name = v_img OR name = ltrim(v_img, '/'));
-        END IF;
-      END LOOP;
-    END IF;
+  DELETE FROM storage.objects
+  WHERE bucket_id = 'gift-images'
+    AND name IN (
+      SELECT ltrim(btrim(img), '/')
+      FROM public.gifts g,
+           unnest(g.image_urls) AS img
+      WHERE g.is_opened = true
+        AND g.opened_at IS NOT NULL
+        AND g.opened_at < (now() - INTERVAL '24 hours')
+        AND g.photo_deleted_at IS NULL
+        AND img IS NOT NULL
+        AND btrim(img) <> ''
+        AND img NOT LIKE 'data:%'
+        AND img NOT LIKE 'http%'
+    );
 
-    UPDATE public.gifts
-       SET image_urls = '{}'::text[],
-           photo_deleted_at = now()
-     WHERE id = v_gift.id;
-  END LOOP;
+  UPDATE public.gifts
+     SET image_urls = '{}'::text[],
+         photo_deleted_at = now()
+   WHERE is_opened = true
+     AND opened_at IS NOT NULL
+     AND opened_at < (now() - INTERVAL '24 hours')
+     AND photo_deleted_at IS NULL;
 END;
 $$;
 
--- 8. Grant Execution & Cron Schedule Setup
+-- 8. Partial Indexes for High-Performance Scheduled Execution
+CREATE INDEX IF NOT EXISTS idx_gifts_unopened_cleanup 
+ON public.gifts (created_at) 
+WHERE is_opened = false;
+
+CREATE INDEX IF NOT EXISTS idx_gifts_opened_photo_cleanup 
+ON public.gifts (opened_at) 
+WHERE is_opened = true AND photo_deleted_at IS NULL;
+
+-- 9. Grant Execution & Idempotent Cron Schedule Setup
 REVOKE ALL ON FUNCTION public.cleanup_expired_gifts_and_photos() FROM public;
-GRANT EXECUTE ON FUNCTION public.cleanup_expired_gifts_and_photos() TO service_role;
+GRANT EXECUTE ON FUNCTION public.cleanup_expired_gifts_and_photos() TO service_role, postgres;
 
 DO $do$
 BEGIN
@@ -260,6 +265,11 @@ BEGIN
      EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_cron') THEN
     CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA extensions;
     
+    -- Idempotent check: unschedule existing job if present
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'gift_privacy_cleanup') THEN
+      PERFORM cron.unschedule('gift_privacy_cleanup');
+    END IF;
+
     PERFORM cron.schedule(
       'gift_privacy_cleanup',
       '*/15 * * * *',
@@ -267,6 +277,7 @@ BEGIN
     );
   END IF;
 EXCEPTION WHEN OTHERS THEN
-  NULL;
+  RAISE NOTICE 'pg_cron schedule notice: %', SQLERRM;
 END;
 $do$;
+
