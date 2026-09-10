@@ -328,7 +328,12 @@ function RevealPage() {
       style={{ background: themeConfig.bgGradient }}
     >
       <Toaster position="top-center" richColors />
-      {opened && <Confetti colors={themeConfig.confettiColors} />}
+      {opened && (
+        <Confetti
+          colors={themeConfig.confettiColors}
+          emojis={themeConfig.confettiEmojis}
+        />
+      )}
 
       <div
         className={`mx-auto flex min-h-dvh max-w-2xl flex-col items-center px-6 py-16 text-center ${
@@ -474,18 +479,45 @@ function SparkleBurst({ colors }: { colors: string[] }) {
   );
 }
 
-/** Confetti particles with dynamic palette & mobile GPU optimization */
-function Confetti({ colors }: { colors: string[] }) {
+/** Confetti and sprinkle particles with theme emoji support & mobile GPU optimization */
+function Confetti({ colors, emojis }: { colors: string[]; emojis?: string[] }) {
   const [done, setDone] = useState(false);
 
   const pieces = useMemo(() => {
     const isSmall = typeof window !== "undefined" && window.innerWidth < 640;
-    const count = isSmall ? 24 : 50;
+    const hasEmojis = Array.isArray(emojis) && emojis.length > 0;
+    const count = isSmall ? 24 : 48;
+
     return Array.from({ length: count }).map((_, i) => {
+      const left = Math.random() * 92 + 4;
+      const delay = Math.random() * 1.2;
+      const duration = 2.8 + Math.random() * 2.4;
+
+      if (hasEmojis) {
+        // Pick individual emoji for each falling particle — never joined into a single string/line
+        const emoji = emojis[i % emojis.length];
+        const fontSize = isSmall ? 18 + Math.random() * 8 : 22 + Math.random() * 12;
+        const driftX = (Math.random() - 0.5) * 60; // gentle horizontal drift (-30px to +30px)
+        const rotEnd = (Math.random() - 0.5) * 50; // gentle tilt (-25deg to +25deg)
+
+        return {
+          isEmoji: true as const,
+          emoji,
+          left,
+          delay,
+          duration,
+          fontSize,
+          driftX: `${driftX.toFixed(1)}px`,
+          rotEnd: `${rotEnd.toFixed(1)}deg`,
+        };
+      }
+
+      // Classic confetti shapes for themes without emojis (like Holiday)
       const shape = i % 3;
       const width = shape === 2 ? 3 : 6 + Math.random() * 8;
       const height = shape === 2 ? 18 + Math.random() * 10 : shape === 1 ? width : 10 + Math.random() * 10;
       return {
+        isEmoji: false as const,
         left: Math.random() * 100,
         delay: Math.random() * 0.8,
         duration: 2.5 + Math.random() * 2.5,
@@ -495,33 +527,54 @@ function Confetti({ colors }: { colors: string[] }) {
         radius: shape === 1 ? "9999px" : "2px",
       };
     });
-  }, [colors]);
+  }, [colors, emojis]);
 
   useEffect(() => {
-    const t = setTimeout(() => setDone(true), 6000);
+    const t = setTimeout(() => setDone(true), 7000);
     return () => clearTimeout(t);
   }, []);
 
   if (done) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {pieces.map((p, i) => (
-        <div
-          key={i}
-          style={{
-            left: `${p.left}%`,
-            backgroundColor: p.color,
-            animation: `confetti-fall ${p.duration}s linear ${p.delay}s forwards`,
-            width: p.width,
-            height: p.height,
-            top: -20,
-            borderRadius: p.radius,
-            willChange: "transform, opacity",
-          }}
-          className="absolute"
-        />
-      ))}
+    <div className="pointer-events-none absolute inset-0 overflow-hidden select-none z-10">
+      {pieces.map((p, i) =>
+        p.isEmoji ? (
+          <span
+            key={i}
+            style={
+              {
+                left: `${p.left}%`,
+                top: -30,
+                fontSize: `${p.fontSize}px`,
+                lineHeight: 1,
+                "--drift-x": p.driftX,
+                "--rot-end": p.rotEnd,
+                animation: `emoji-fall ${p.duration}s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${p.delay}s forwards`,
+                willChange: "transform, opacity",
+              } as React.CSSProperties
+            }
+            className="absolute select-none pointer-events-none drop-shadow-sm"
+          >
+            {p.emoji}
+          </span>
+        ) : (
+          <div
+            key={i}
+            style={{
+              left: `${p.left}%`,
+              backgroundColor: p.color,
+              animation: `confetti-fall ${p.duration}s linear ${p.delay}s forwards`,
+              width: p.width,
+              height: p.height,
+              top: -20,
+              borderRadius: p.radius,
+              willChange: "transform, opacity",
+            }}
+            className="absolute select-none pointer-events-none"
+          />
+        )
+      )}
     </div>
   );
 }

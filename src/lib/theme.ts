@@ -26,6 +26,9 @@ export interface ThemeConfig {
   unwrapHaloGradient: string;
   // Confetti / Sparkle color palette
   confettiColors: string[];
+  // Theme-specific sprinkle emojis (each falling particle is an individual emoji).
+  // If undefined or empty, defaults to classic confetti shapes (e.g. Holiday).
+  confettiEmojis?: string[];
   // Card border / accent color
   cardAccentBorder: string;
   accentText: string;
@@ -53,6 +56,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       "oklch(0.62 0.20 350)",
       "oklch(0.85 0.12 200)",
     ],
+    confettiEmojis: ["🥳"],
     cardAccentBorder: "border-[oklch(0.72_0.17_25)]/30",
     accentText: "text-[oklch(0.66_0.20_15)]",
   },
@@ -76,6 +80,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       "oklch(0.50 0.25 5)",
       "oklch(0.92 0.08 80)",
     ],
+    confettiEmojis: ["💖", "💋", "💘", "💓", "💞"],
     cardAccentBorder: "border-[oklch(0.60_0.24_15)]/30",
     accentText: "text-[oklch(0.55_0.25_5)]",
   },
@@ -99,6 +104,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       "oklch(0.45 0.14 160)",
       "oklch(0.90 0.10 90)",
     ],
+    confettiEmojis: ["🙏🏼"],
     cardAccentBorder: "border-[oklch(0.55_0.15_150)]/30",
     accentText: "text-[oklch(0.45_0.16_145)]",
   },
@@ -122,13 +128,14 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       "oklch(0.75 0.14 260)",
       "oklch(0.95 0.05 90)",
     ],
+    // Holiday keeps the classic colorful confetti sprinkles as requested ("leave holiday as it it")
     cardAccentBorder: "border-[oklch(0.45_0.20_290)]/30",
     accentText: "text-[oklch(0.40_0.22_270)]",
   },
   welcome: {
     id: "welcome",
     label: "Welcome",
-    emoji: "🌟",
+    emoji: "🤙🏼",
     badgeText: "A Warm Welcome!",
     swatch: "bg-gradient-to-r from-[oklch(0.60_0.16_200)] via-[oklch(0.65_0.18_180)] to-[oklch(0.85_0.16_85)]",
     bgGradient: "linear-gradient(180deg, oklch(0.98 0.02 195) 0%, oklch(0.94 0.04 185) 100%)",
@@ -145,6 +152,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       "oklch(0.75 0.15 150)",
       "oklch(0.92 0.08 90)",
     ],
+    confettiEmojis: ["💅🏻", "🤙🏼"],
     cardAccentBorder: "border-[oklch(0.60_0.16_200)]/30",
     accentText: "text-[oklch(0.50_0.18_195)]",
   },
