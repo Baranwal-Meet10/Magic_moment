@@ -87,7 +87,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
   thanks: {
     id: "thanks",
     label: "Thanks",
-    emoji: "🍃",
+    emoji: "🙏🏼",
     badgeText: "With Heartfelt Thanks",
     swatch: "bg-gradient-to-r from-[oklch(0.55_0.15_150)] via-[oklch(0.65_0.18_140)] to-[oklch(0.78_0.14_85)]",
     bgGradient: "linear-gradient(180deg, oklch(0.98 0.015 140) 0%, oklch(0.94 0.04 150) 100%)",
