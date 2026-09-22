@@ -19,6 +19,7 @@ import { Toaster } from "sonner";
 import { THEMES, getThemeConfig, type ThemeId } from "@/lib/theme";
 import { MobileButton, MobileGiftBox } from "@/components/mobile-touch";
 import { logDevError, parseSupabaseError } from "@/lib/dev-logger";
+import { WrappingLoaderOverlay } from "@/components/wrapping-loader";
 
 export const Route = createFileRoute("/create")({
   component: CreatePage,
@@ -68,6 +69,7 @@ function CreatePage() {
   const [preview, setPreview] = useState<string | null>(null);
   // --- Submit state & synchronous submission lock -------------------------
   const [submitting, setSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState("Wrapping your gift…");
   const submittingRef = useRef(false);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
 
@@ -106,6 +108,7 @@ function CreatePage() {
 
     submittingRef.current = true;
     setSubmitting(true);
+    setSubmitStatus(imageFile ? "Uploading your photo securely…" : "Wrapping your gift with care…");
     let uploadedPath: string | null = null;
 
     try {
@@ -133,7 +136,15 @@ function CreatePage() {
           uploadedPath = upData.path;
         }
         imageUrls = [uploadedPath];
+        setSubmitStatus("Attaching photo to gift box…");
       }
+
+      setSubmitStatus("Sealing the gift box & ribbon…");
+
+      // Small tick for smooth real-time progression
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      setSubmitStatus("Generating your private unwrap link…");
 
       // 2. Insert gift row via SECURITY DEFINER RPC (slug generated server-side).
       const { data, error } = await supabase.rpc("create_gift", {
@@ -160,6 +171,10 @@ function CreatePage() {
       if (!data || typeof data !== "string") {
         throw new Error("Invalid response from server");
       }
+
+      setSubmitStatus("All done! Ready to share…");
+      // Brief pause for delightful completion feel before showing link screen
+      await new Promise((resolve) => setTimeout(resolve, 400));
 
       setCreatedSlug(data);
     } catch (err) {
@@ -193,6 +208,7 @@ function CreatePage() {
   return (
     <main className="min-h-dvh transition-colors duration-500" style={{ background: selectedThemeConfig.bgGradient }}>
       <Toaster position="top-center" richColors />
+      {submitting && <WrappingLoaderOverlay statusText={submitStatus} />}
       <nav className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6">
         <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back
