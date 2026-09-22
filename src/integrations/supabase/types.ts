@@ -61,6 +61,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_upload_rate_limit: {
+        Args: Record<string, never>
+        Returns: boolean
+      }
       create_gift: {
         Args: {
           _message: string

@@ -38,6 +38,58 @@ export const Route = createFileRoute("/create")({
 const MAX_MB = 5;
 const ACCEPT = ["image/jpeg", "image/png", "image/webp"];
 
+// Allowed file extensions mapped to MIME types for double-check
+const EXT_TO_MIME: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+/**
+ * Strip EXIF / GPS metadata from an image by re-encoding through a canvas.
+ * Returns a new File with clean pixel data only.
+ */
+async function stripExifData(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file); // fallback: return original if canvas fails
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        const outputType = file.type === "image/png" ? "image/png" : file.type === "image/webp" ? "image/webp" : "image/jpeg";
+        const quality = outputType === "image/png" ? undefined : 0.92;
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            resolve(new File([blob], file.name, { type: outputType, lastModified: Date.now() }));
+          },
+          outputType,
+          quality,
+        );
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image for EXIF stripping"));
+    };
+    img.src = url;
+  });
+}
+
 /** Safe UUID helper that works on HTTPS, HTTP local IPs (192.168.x.x), and older mobile webviews */
 function safeUUID(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -86,6 +138,13 @@ function CreatePage() {
       toast.error("Please upload a JPG, PNG, or WebP.");
       return;
     }
+    // Double-check: file extension must match declared MIME type
+    const rawExt = (f.name.split(".").pop() ?? "").toLowerCase();
+    const expectedMime = EXT_TO_MIME[rawExt];
+    if (!expectedMime || expectedMime !== f.type) {
+      toast.error("File extension doesn't match its type. Please rename or re-export.");
+      return;
+    }
     if (f.size > MAX_MB * 1024 * 1024) {
       toast.error(`Max file size is ${MAX_MB}MB.`);
       return;
@@ -116,13 +175,33 @@ function CreatePage() {
 
       // 1. Upload image to Supabase Storage bucket under a randomized path.
       if (imageFile) {
-        const rawExt = (imageFile.name.split(".").pop() ?? "jpg").toLowerCase();
+        // 1a. Pre-upload rate limit check
+        const { error: rlErr } = await supabase.rpc("check_upload_rate_limit");
+        if (rlErr) {
+          if (rlErr.code !== "PGRST202") {
+            logDevError("create.tsx -> check_upload_rate_limit", rlErr);
+            const parsed = parseSupabaseError(rlErr, "Too many uploads. Please wait a moment.");
+            toast.error(parsed.userMessage);
+            return;
+          }
+          logDevError("create.tsx -> check_upload_rate_limit: function pending migration 20260922200000", rlErr);
+        }
+
+        // 1b. Strip EXIF/GPS metadata from image for privacy
+        let cleanFile: File;
+        try {
+          cleanFile = await stripExifData(imageFile);
+        } catch {
+          cleanFile = imageFile; // fallback to original if stripping fails
+        }
+
+        const rawExt = (cleanFile.name.split(".").pop() ?? "jpg").toLowerCase();
         const ext = ["jpg", "jpeg", "png", "webp"].includes(rawExt) ? rawExt : "jpg";
         uploadedPath = `uploads/${safeUUID()}.${ext}`;
 
         const { data: upData, error: upErr } = await supabase.storage
           .from("gift-images")
-          .upload(uploadedPath, imageFile, { contentType: imageFile.type, upsert: false });
+          .upload(uploadedPath, cleanFile, { contentType: cleanFile.type, upsert: false });
 
         if (upErr) {
           logDevError("create.tsx -> storage.upload", upErr);

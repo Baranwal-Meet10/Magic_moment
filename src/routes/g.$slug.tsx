@@ -48,26 +48,35 @@ export const Route = createFileRoute("/g/$slug")({
     return { gift: row as unknown as GiftMeta };
   },
 
-  head: ({ loaderData }) => ({
-    meta: loaderData?.gift
-      ? [
-          {
-            title: loaderData.gift.creator_name
-              ? `A gift from ${loaderData.gift.creator_name} · GiftLink`
-              : "You have a gift · GiftLink",
-          },
-          { name: "description", content: "Tap to unwrap your GiftLink." },
-          {
-            property: "og:title",
-            content: loaderData.gift.creator_name
-              ? `A gift from ${loaderData.gift.creator_name}`
-              : "You have a gift",
-          },
-          { property: "og:description", content: "Tap to unwrap it." },
-          { name: "robots", content: "noindex" },
-        ]
-      : [],
-  }),
+  head: ({ loaderData }) => {
+    // Escape HTML entities to prevent meta-tag injection via creator_name
+    const escapeHtml = (str: string) =>
+      str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const safeName = loaderData?.gift?.creator_name
+      ? escapeHtml(loaderData.gift.creator_name)
+      : null;
+
+    return {
+      meta: loaderData?.gift
+        ? [
+            {
+              title: safeName
+                ? `A gift from ${safeName} · GiftLink`
+                : "You have a gift · GiftLink",
+            },
+            { name: "description", content: "Tap to unwrap your GiftLink." },
+            {
+              property: "og:title",
+              content: safeName
+                ? `A gift from ${safeName}`
+                : "You have a gift",
+            },
+            { property: "og:description", content: "Tap to unwrap it." },
+            { name: "robots", content: "noindex" },
+          ]
+        : [],
+    };
+  },
   notFoundComponent: () => (
     <div className="flex min-h-dvh items-center justify-center px-4">
       <div className="max-w-md text-center">
@@ -246,6 +255,16 @@ function RevealPage() {
           setTimeout(() => setOpened(true), 900);
           return;
         }
+
+        // was_opened = false means gift was ALREADY opened before (idempotency guard).
+        // Show the already-opened screen by reloading the route.
+        if (row && row.was_opened === false) {
+          // Gift is already opened — redirect to the already-opened state
+          setOpened(true);
+          // Force reload to show AlreadyOpened component
+          window.location.reload();
+          return;
+        }
       }
 
       // Log dev error for primary open_gift call failure
@@ -253,8 +272,7 @@ function RevealPage() {
         logDevError("g.$slug.tsx -> open_gift primary call failed", error);
       }
 
-      // 2. RECOVERY FLOW FOR NETWORK/RESPONSE FAILURES:
-      // Do NOT blindly call open_gift again! First query get_gift_by_slug to inspect DB state.
+      // 2. RECOVERY FLOW: Check database state to understand what happened.
       const { data: checkData, error: checkError } = await supabase.rpc("get_gift_by_slug", {
         _slug: gift.slug,
       });
@@ -266,20 +284,11 @@ function RevealPage() {
       const checkRow = Array.isArray(checkData) ? checkData[0] : checkData;
 
       if (checkRow && checkRow.is_opened) {
-        // The database update succeeded despite initial client response loss!
-        // Retrieve revealed content by calling open_gift once (now confirmed safe/opened in DB).
-        const { data: retryData, error: retryError } = await supabase.rpc("open_gift", {
-          _slug: gift.slug,
-        });
-
-        const retryRow = Array.isArray(retryData) ? retryData[0] : retryData;
-        if (!retryError && retryRow?.message) {
-          const rawImagePaths = parseImagePaths(retryRow.image_urls);
-          setRevealed({ message: retryRow.message, image_urls: rawImagePaths });
-          setOpened(true);
-          toast.success("Gift opened!");
-          return;
-        }
+        // The gift was opened (either by us or someone else).
+        // With idempotency guard restored, we can't re-read the message via open_gift.
+        // Show the already-opened screen.
+        window.location.reload();
+        return;
       }
 
       // If DB state shows is_opened = false or recovery failed:
@@ -297,15 +306,9 @@ function RevealPage() {
         const { data: checkData } = await supabase.rpc("get_gift_by_slug", { _slug: gift.slug });
         const checkRow = Array.isArray(checkData) ? checkData[0] : checkData;
         if (checkRow && checkRow.is_opened) {
-          const { data: retryData } = await supabase.rpc("open_gift", { _slug: gift.slug });
-          const retryRow = Array.isArray(retryData) ? retryData[0] : retryData;
-          if (retryRow?.message) {
-            const rawImagePaths = parseImagePaths(retryRow.image_urls);
-            setRevealed({ message: retryRow.message, image_urls: rawImagePaths });
-            setOpened(true);
-            toast.success("Gift opened!");
-            return;
-          }
+          // Gift was opened but we lost the response. Show already-opened screen.
+          window.location.reload();
+          return;
         }
       } catch (checkErr) {
         logDevError("g.$slug.tsx -> catch recovery check failed", checkErr);
