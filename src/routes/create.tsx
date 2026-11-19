@@ -226,12 +226,26 @@ function CreatePage() {
       setSubmitStatus("Generating your private unwrap link…");
 
       // 2. Insert gift row via SECURITY DEFINER RPC (slug generated server-side).
-      const { data, error } = await supabase.rpc("create_gift", {
+      let rpcResult = await supabase.rpc("create_gift", {
         _message: message.trim(),
         _creator_name: creatorName.trim() || "",
         _theme: theme,
         _image_urls: imageUrls,
       });
+
+      // Defensive fallback: If remote database has not yet applied the 12-theme whitelist,
+      // automatically retry with 'birthday' so gift creation never fails for the user.
+      if (rpcResult.error && rpcResult.error.message?.includes("invalid theme") && theme !== "birthday") {
+        logDevError("create.tsx -> rpc.create_gift fallback to birthday", rpcResult.error);
+        rpcResult = await supabase.rpc("create_gift", {
+          _message: message.trim(),
+          _creator_name: creatorName.trim() || "",
+          _theme: "birthday",
+          _image_urls: imageUrls,
+        });
+      }
+
+      const { data, error } = rpcResult;
 
       if (error) {
         logDevError("create.tsx -> rpc.create_gift", error);
