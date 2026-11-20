@@ -352,15 +352,15 @@ function CreatePage() {
 
           {/* Appearance & Theme Selection */}
           <div>
-            <label className="mb-2 block text-sm font-medium">Appearance</label>
+            <label className="mb-1 block text-sm font-medium"></label>
             <div className="flex justify-center">
               <button
                 type="button"
                 onClick={() => setThemeDrawerOpen(true)}
                 style={{ touchAction: "manipulation" }}
-                className="inline-flex min-w-[3cm] items-center justify-center gap-1.5 rounded-full bg-gradient-warm px-4 py-2 text-sm font-semibold text-primary-foreground shadow-gift transition-transform hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="inline-flex min-w-[9cm] items-center justify-center gap-2 rounded-full bg-gradient-warm px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-gift transition-transform hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
-                <Palette className="h-4 w-4" />
+                <Palette className="h-8 w-9" />
                 <span>Theme</span>
               </button>
             </div>
