@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------------------
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useRef } from "react";
-import { Gift, ArrowLeft, Image as ImageIcon, Loader2, Check, Copy, Sparkles } from "lucide-react";
+import { Gift, ArrowLeft, Image as ImageIcon, Loader2, Check, Copy, Sparkles, Palette } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
@@ -352,21 +352,18 @@ function CreatePage() {
 
           {/* Appearance & Theme Selection */}
           <div>
-            <label className="mb-2 block text-sm font-medium"></label>
-            <button
-              type="button"
-              onClick={() => setThemeDrawerOpen(true)}
-              style={{ touchAction: "manipulation" }}
-              className="flex w-full items-center justify-between rounded-xl bg-[#d85c88] px-5 py-3.5 text-base font-semibold text-white shadow-soft transition-all hover:bg-[#c94b77] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#d85c88]/40"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">{selectedThemeConfig.emoji}</span>
-                <span className="text-lg font-semibold tracking-wide">Theme</span>
-              </div>
-              <span className="rounded-full bg-white/20 px-3 py-5 text-xs font-medium text-white">
-                {selectedThemeConfig.label} &rarr;
-              </span>
-            </button>
+            <label className="mb-2 block text-sm font-medium">Appearance</label>
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setThemeDrawerOpen(true)}
+                style={{ touchAction: "manipulation" }}
+                className="inline-flex min-w-[3cm] items-center justify-center gap-1.5 rounded-full bg-gradient-warm px-4 py-2 text-sm font-semibold text-primary-foreground shadow-gift transition-transform hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                <Palette className="h-4 w-4" />
+                <span>Theme</span>
+              </button>
+            </div>
           </div>
 
           {/* Live Gift Box Theme Preview */}
