@@ -85,7 +85,7 @@ export const Route = createFileRoute("/g/$slug")({
           The link may be mistyped or the gift was never created.
         </p>
         <Link
-          to="/"
+          to="/create"
           className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-soft"
         >
           Send your own gift

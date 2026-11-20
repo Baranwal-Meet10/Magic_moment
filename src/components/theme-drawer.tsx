@@ -11,7 +11,7 @@
 // ---------------------------------------------------------------------------
 
 import * as React from "react";
-import { X, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/sheet";
 import { THEMES, type ThemeId, type ThemeConfig } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -396,37 +396,25 @@ export function ThemeDrawer({
       >
         {/* Drawer Header */}
         <div className="border-b border-border/70 bg-card/60 px-6 pt-6 pb-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold tracking-[0.18em] uppercase text-[#9e4438]">
-                Make it their kind of special
-              </span>
-              <SheetTitle className="font-serif text-2xl font-bold tracking-tight text-[#3b1d19]">
-                Choose a theme
-              </SheetTitle>
-              <SheetDescription className="text-xs text-muted-foreground">
-                12 different moods. One thoughtful gift.
-              </SheetDescription>
-              <p className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground/80 pt-0.5">
-                Scroll to explore every style ↓
-              </p>
-            </div>
-
-            {/* Styled Close Button */}
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              aria-label="Close theme drawer"
-              className="rounded-full bg-secondary/80 p-2 text-foreground/70 transition-colors hover:bg-secondary hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <X className="h-4 w-4" />
-            </button>
+          <div className="space-y-1 pr-8">
+            <span className="text-[11px] font-bold tracking-[0.18em] uppercase text-[#9e4438]">
+              Make it their kind of special
+            </span>
+            <SheetTitle className="font-serif text-2xl font-bold tracking-tight text-[#3b1d19]">
+              Choose a theme
+            </SheetTitle>
+            <SheetDescription className="text-xs text-muted-foreground">
+              12 different moods. One thoughtful gift.
+            </SheetDescription>
+            <p className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground/80 pt-0.5">
+              Scroll to explore every style ↓
+            </p>
           </div>
         </div>
 
         {/* Scrollable 2-Column Grid */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="grid grid-cols-2 gap-3.5 pb-4">
+          <div className="grid grid-cols-2 gap-3.5 pb-8">
             {themeList.map((theme) => {
               const isSelected = selectedTheme === theme.id;
 

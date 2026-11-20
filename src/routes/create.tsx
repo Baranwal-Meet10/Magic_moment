@@ -298,8 +298,6 @@ function CreatePage() {
     );
   }
 
-  const themeList = Object.values(THEMES);
-
   return (
     <main className="min-h-dvh transition-colors duration-500" style={{ background: selectedThemeConfig.bgGradient }}>
       <Toaster position="top-center" richColors />
@@ -483,7 +481,7 @@ function CreatedScreen({
   };
 
   return (
-    <main className="min-h-dvh">
+    <main className="min-h-dvh bg-[var(--gradient-cream)]">
       <Toaster position="top-center" richColors />
       <section className="mx-auto max-w-xl px-6 pt-24 pb-16 text-center">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-warm shadow-gift">
@@ -495,7 +493,10 @@ function CreatedScreen({
         </p>
 
         <div className="mt-8 flex items-stretch gap-2 rounded-full border border-border bg-card p-1.5 shadow-soft">
-          <div className="min-w-0 flex-1 truncate rounded-full px-4 py-2.5 text-left text-sm font-medium">
+          <div
+            title={url}
+            className="min-w-0 flex-1 truncate select-all rounded-full px-4 py-2.5 text-left text-sm font-medium"
+          >
             {url}
           </div>
           <MobileButton
