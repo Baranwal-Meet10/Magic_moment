@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 import { THEMES, getThemeConfig, type ThemeId } from "@/lib/theme";
+import { ThemeDrawer } from "@/components/theme-drawer";
 import { MobileButton, MobileGiftBox } from "@/components/mobile-touch";
 import { logDevError, parseSupabaseError } from "@/lib/dev-logger";
 import { WrappingLoaderOverlay } from "@/components/wrapping-loader";
@@ -117,6 +118,7 @@ function CreatePage() {
   const [message, setMessage] = useState("");
   const [creatorName, setCreatorName] = useState("");
   const [theme, setTheme] = useState<ThemeId>("birthday");
+  const [themeDrawerOpen, setThemeDrawerOpen] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   // --- Submit state & synchronous submission lock -------------------------
@@ -350,28 +352,23 @@ function CreatePage() {
             </div>
           </div>
 
-          {/* Theme Selection */}
+          {/* Appearance & Theme Selection */}
           <div>
-            <label className="mb-2 block text-sm font-medium">Choose Theme</label>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5 sm:gap-2">
-              {themeList.map((t) => (
-                <button
-                  type="button"
-                  key={t.id}
-                  onClick={() => setTheme(t.id)}
-                  style={{ touchAction: "manipulation" }}
-                  className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border-2 p-2.5 transition active:scale-[0.97] ${theme === t.id
-                      ? "border-primary bg-secondary shadow-sm"
-                      : "border-border bg-background hover:border-input"
-                    }`}
-                >
-                  <div className={`h-7 w-7 rounded-full shadow-inner ${t.swatch} flex items-center justify-center text-xs`}>
-                    {t.emoji}
-                  </div>
-                  <span className="text-xs font-semibold">{t.label}</span>
-                </button>
-              ))}
-            </div>
+            <label className="mb-2 block text-sm font-medium"></label>
+            <button
+              type="button"
+              onClick={() => setThemeDrawerOpen(true)}
+              style={{ touchAction: "manipulation" }}
+              className="flex w-full items-center justify-between rounded-xl bg-[#d85c88] px-5 py-3.5 text-base font-semibold text-white shadow-soft transition-all hover:bg-[#c94b77] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#d85c88]/40"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">{selectedThemeConfig.emoji}</span>
+                <span className="text-lg font-semibold tracking-wide">Theme</span>
+              </div>
+              <span className="rounded-full bg-white/20 px-3 py-5 text-xs font-medium text-white">
+                {selectedThemeConfig.label} &rarr;
+              </span>
+            </button>
           </div>
 
           {/* Live Gift Box Theme Preview */}
@@ -381,6 +378,13 @@ function CreatePage() {
             </div>
             <MobileGiftBox themeId={theme} unwrapping={false} className="scale-90 sm:scale-100 -my-4" />
           </div>
+
+          <ThemeDrawer
+            open={themeDrawerOpen}
+            onOpenChange={setThemeDrawerOpen}
+            selectedTheme={theme}
+            onSelectTheme={setTheme}
+          />
 
           <div>
             <label className="mb-2 block text-sm font-medium">Photo (optional)</label>
