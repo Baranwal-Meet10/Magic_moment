@@ -1,9 +1,11 @@
 # Phase 1: Theme Engine Expansion
 
+## Status: ✅ Done (Commit `c9ef6a7`)
+
 ## Goal
 Expand the theme engine in `src/lib/theme.ts` from 5 basic themes to 12 complete visual mood themes as specified in the UI designs.
 
-## Requirements
+## Requirements & Implementation
 1. **Theme IDs**:
    - `birthday`: "Confetti & celebration"
    - `love`: "Blush & handwritten hearts"
@@ -18,7 +20,7 @@ Expand the theme engine in `src/lib/theme.ts` from 5 basic themes to 12 complete
    - `botanical`: "Lush greenery & bloom"
    - `sunset`: "Golden hour & warm glow"
 
-2. **Configuration Attributes Per Theme**:
+2. **Configuration Attributes Per Theme (`ThemeConfig`)**:
    - `id`: ThemeId
    - `label`: Display name
    - `tagline`: Description (e.g. "Blush & handwritten hearts")
@@ -36,7 +38,13 @@ Expand the theme engine in `src/lib/theme.ts` from 5 basic themes to 12 complete
    - `confettiEmojis`: Array of thematic floating emojis (e.g., hearts for love, stars for celestial, champagne for congrats)
    - `cardAccentBorder`: Border styling
    - `accentText`: Typography color class
-   - `previewStyle`: Styles and visual elements for the drawer preview card
+   - `drawerPreview`: `ThemeDrawerCardPreview` object containing background gradient, badge, tagline, accent text color, and motif type for drawer cards.
 
 3. **Backward Compatibility**:
-   - `getThemeConfig(themeId?: string | null): ThemeConfig` must safely fallback to `birthday` for invalid or unknown theme IDs.
+   - `getThemeConfig(themeId?: string | null): ThemeConfig` safely falls back to `birthday` for invalid or unknown theme IDs.
+
+4. **Planned Extensions (Phase 4a)**:
+   - `buttonGradient`: string
+   - `buttonTextColor`: string (optional, for WCAG AA contrast)
+   - `cardTint`: string
+   - `previewBg`: string
