@@ -59,7 +59,6 @@ Implement a comprehensive theme system with a dedicated slide-over right-side Th
 - **Objective**: Redesign the theme selection on `/create` matching Image 1.
 - **Deliverables**:
   - Replace inline theme button grid with:
-    - `Appearance` section title.
     - Pink / theme-accented `Theme` trigger button that opens the drawer.
     - Live Gift Box preview container showing real-time 3D box preview with the chosen theme.
   - Smooth drawer open/close state management.

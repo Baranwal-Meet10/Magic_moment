@@ -6,7 +6,6 @@ Integrate the Theme Drawer into `/create`, updating the theme selector to match 
 ## Requirements
 1. **Appearance Section Layout**:
    - Replace the existing 5-button inline grid with:
-     - Section Label: `Appearance` (medium font, standard form label)
      - Theme Trigger Button:
        - Displays `Theme` (or current theme name with preview swatch)
        - Styled with warm pink accent, rounded edges, and tactile hover/press states.
