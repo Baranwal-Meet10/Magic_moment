@@ -1,6 +1,6 @@
 # Phase 5: Receiver Reveal Experience Sync (`src/routes/g.$slug.tsx`)
 
-## Status: ⚠️ In Progress (Partially Implemented)
+## Status: ✅ Done
 
 ## Goal
 Ensure all 12 themes produce consistent, visually stunning results on the recipient unwrap page (`src/routes/g.$slug.tsx`) by completing remaining gaps.
@@ -33,7 +33,7 @@ Ensure all 12 themes produce consistent, visually stunning results on the recipi
 ---
 
 ## Verification Checklist
-- [ ] Receiver reveal page displays appropriate themed CTA button gradient for all 12 themes
-- [ ] AlreadyOpened screen displays the specific gift's themed button gradient
-- [ ] `themeConfig.accentText` is properly rendered on the message card
-- [ ] Zero TypeScript errors (`tsc --noEmit`)
+- [x] Receiver reveal page displays appropriate themed CTA button gradient for all 12 themes
+- [x] AlreadyOpened screen displays the specific gift's themed button gradient
+- [x] `themeConfig.accentText` is properly rendered on the message card
+- [x] Zero TypeScript errors (`tsc --noEmit`)

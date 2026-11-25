@@ -18,7 +18,7 @@ Implement a comprehensive theme system with a dedicated slide-over right-side Th
         │                        │
         │                        ├──> [Phase 4a: Creator Page Themed UI Polish] ✅
         │                        │           │
-        └────────────────────────┴───> [Phase 5: Receiver /g/:slug Reveal Sync] ⚠️
+        └────────────────────────┴───> [Phase 5: Receiver /g/:slug Reveal Sync] ✅
                                              │
                                              └──> [Phase 6: QA, Build & Polish] 🔲
 ```
@@ -30,7 +30,7 @@ Implement a comprehensive theme system with a dedicated slide-over right-side Th
 | **Phase 3** | Right-Side Theme Drawer Component | ✅ Done | `src/components/theme-drawer.tsx` with 12 preview cards, single close button, sticky footer. |
 | **Phase 4** | Creator Page Appearance Section & Trigger | ✅ Done | Centered ~3cm Theme pill button with `Palette` icon, `Live Preview` box, drawer state sync. |
 | **Phase 4a** | Creator Page Themed UI Polish | ✅ Done | Extended `ThemeConfig` with `buttonGradient`, `buttonTextColor`, `cardTint`, `previewBg`; `/create` dynamically matches all 12 themes. |
-| **Phase 5** | Receiver Reveal Experience Sync | ⚠️ In Progress | Sync remaining reveal page surfaces (`accentText` token wiring, themed CTA buttons on reveal & already-opened screens). |
+| **Phase 5** | Receiver Reveal Experience Sync | ✅ Done | Synced reveal & already-opened CTAs, badge, lock icon, card border tint, and `accentText` token across all 12 themes. |
 | **Phase 6** | Quality Assurance, Verification & Polish | 🔲 Not started | Full client + SSR build validation, contrast check across light & dark themes, mobile touch audits. (Never commit without user approval). |
 
 ---
@@ -74,7 +74,7 @@ Implement a comprehensive theme system with a dedicated slide-over right-side Th
   - Add subtle themed tint to the Live Preview container and form card border.
   - Verify WCAG AA text contrast on all themed buttons.
 
-### Phase 5: Receiver Reveal Experience Sync (`src/routes/g.$slug.tsx`) — ⚠️ In Progress
+### Phase 5: Receiver Reveal Experience Sync (`src/routes/g.$slug.tsx`) — ✅ Done
 - **Objective**: Ensure all 12 themes fully style the recipient unwrap page and replace remaining hardcoded pink accents.
 - **Deliverables**:
   - Already implemented: theme background gradient, ambient glow, 3D gift box, unwrap animations, confetti particles & theme emojis.
