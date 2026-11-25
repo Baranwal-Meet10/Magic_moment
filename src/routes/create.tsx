@@ -16,7 +16,7 @@ import { Gift, ArrowLeft, Image as ImageIcon, Loader2, Check, Copy, Sparkles, Pa
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
-import { THEMES, getThemeConfig, type ThemeId } from "@/lib/theme";
+import { getThemeConfig, type ThemeId, type ThemeConfig } from "@/lib/theme";
 import { ThemeDrawer } from "@/components/theme-drawer";
 import { MobileButton, MobileGiftBox } from "@/components/mobile-touch";
 import { logDevError, parseSupabaseError } from "@/lib/dev-logger";
@@ -286,6 +286,7 @@ function CreatePage() {
     return (
       <CreatedScreen
         slug={createdSlug}
+        themeConfig={selectedThemeConfig}
         onNew={() => {
           setCreatedSlug(null);
           setMessage("");
@@ -298,6 +299,8 @@ function CreatePage() {
     );
   }
 
+  const btnTextClass = selectedThemeConfig.buttonTextColor ?? "text-white";
+
   return (
     <main className="min-h-dvh transition-colors duration-500" style={{ background: selectedThemeConfig.bgGradient }}>
       <Toaster position="top-center" richColors />
@@ -307,7 +310,7 @@ function CreatePage() {
           <ArrowLeft className="h-4 w-4" /> Back
         </Link>
         <div className="flex items-center gap-2 font-display text-lg font-semibold">
-          <Gift className="h-5 w-5 text-primary" /> GiftLink
+          <Gift className={`h-5 w-5 transition-colors duration-300 ${selectedThemeConfig.accentText}`} /> GiftLink
         </div>
       </nav>
 
@@ -319,7 +322,11 @@ function CreatePage() {
           </p>
         </div>
 
-        <form onSubmit={submit} className="mt-8 space-y-6 rounded-3xl border border-border bg-card p-6 shadow-soft sm:p-8">
+        <form
+          onSubmit={submit}
+          style={{ borderColor: selectedThemeConfig.cardTint }}
+          className="mt-8 space-y-6 rounded-3xl border bg-card/95 backdrop-blur-sm p-6 shadow-soft transition-colors duration-300 sm:p-8"
+        >
           <div>
             <label className="mb-2 block text-sm font-medium">From (optional)</label>
             <input
@@ -328,7 +335,8 @@ function CreatePage() {
               onChange={(e) => setCreatorName(e.target.value)}
               placeholder="Your name"
               maxLength={40}
-              className="w-full rounded-xl border border-input bg-background px-4 py-3 outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+              style={{ borderColor: selectedThemeConfig.cardTint }}
+              className="w-full rounded-xl border bg-background/80 px-4 py-3 outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
             />
           </div>
 
@@ -343,7 +351,8 @@ function CreatePage() {
               placeholder="Write your special message here..."
               rows={5}
               maxLength={1000}
-              className="w-full resize-none rounded-xl border border-input bg-background px-4 py-3 outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+              style={{ borderColor: selectedThemeConfig.cardTint }}
+              className="w-full resize-none rounded-xl border bg-background/80 px-4 py-3 outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
             />
             <div className="mt-1 text-right text-xs text-muted-foreground">
               {message.length}/1000
@@ -357,8 +366,8 @@ function CreatePage() {
               <button
                 type="button"
                 onClick={() => setThemeDrawerOpen(true)}
-                style={{ touchAction: "manipulation" }}
-                className="inline-flex min-w-[7cm] items-center justify-center gap-1.5 rounded-full bg-gradient-warm px-4 py-2 text-sm font-semibold text-primary-foreground shadow-gift transition-transform hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                style={{ touchAction: "manipulation", background: selectedThemeConfig.buttonGradient }}
+                className={`inline-flex min-w-[7cm] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold shadow-gift transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${btnTextClass}`}
               >
                 <Palette className="h-7 w-7" />
                 <span>Theme</span>
@@ -367,9 +376,12 @@ function CreatePage() {
           </div>
 
           {/* Live Gift Box Theme Preview */}
-          <div className="rounded-2xl border border-border/80 bg-secondary/50 p-4 text-center">
+          <div
+            style={{ background: selectedThemeConfig.previewBg, borderColor: selectedThemeConfig.cardTint }}
+            className="rounded-2xl border p-4 text-center transition-colors duration-300"
+          >
             <div className="mb-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5 text-primary" /> Live Preview: {selectedThemeConfig.label} Theme ({selectedThemeConfig.emoji})
+              <Sparkles className={`h-3.5 w-3.5 transition-colors duration-300 ${selectedThemeConfig.accentText}`} /> Live Preview: {selectedThemeConfig.label} Theme ({selectedThemeConfig.emoji})
             </div>
             <MobileGiftBox themeId={theme} unwrapping={false} className="scale-90 sm:scale-100 -my-4" />
           </div>
@@ -395,7 +407,10 @@ function CreatePage() {
                 </button>
               </div>
             ) : (
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background px-4 py-8 text-sm text-muted-foreground transition hover:border-primary hover:text-foreground">
+              <label
+                style={{ borderColor: selectedThemeConfig.cardTint }}
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed bg-background/80 px-4 py-8 text-sm text-muted-foreground transition hover:border-primary hover:text-foreground"
+              >
                 <ImageIcon className="h-6 w-6" />
                 <span>Tap to add a photo</span>
                 <span className="text-xs">JPG, PNG, WebP · up to {MAX_MB}MB</span>
@@ -412,7 +427,8 @@ function CreatePage() {
           <MobileButton
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-warm py-4 text-base font-semibold text-primary-foreground shadow-gift transition-transform hover:scale-[1.02]"
+            style={{ background: selectedThemeConfig.buttonGradient }}
+            className={`flex w-full items-center justify-center gap-2 rounded-full py-4 text-base font-semibold shadow-gift transition-all duration-300 hover:scale-[1.02] ${btnTextClass}`}
           >
             {submitting ? (
               <>
@@ -432,10 +448,12 @@ function CreatePage() {
 
 function CreatedScreen({
   slug,
+  themeConfig,
   onNew,
   onOpen,
 }: {
   slug: string;
+  themeConfig: ThemeConfig;
   onNew: () => void;
   onOpen: () => void;
 }) {
@@ -477,19 +495,27 @@ function CreatedScreen({
     }
   };
 
+  const btnTextClass = themeConfig.buttonTextColor ?? "text-white";
+
   return (
-    <main className="min-h-dvh bg-[var(--gradient-cream)]">
+    <main className="min-h-dvh transition-colors duration-500" style={{ background: themeConfig.bgGradient }}>
       <Toaster position="top-center" richColors />
       <section className="mx-auto max-w-xl px-6 pt-24 pb-16 text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-warm shadow-gift">
-          <Check className="h-8 w-8 text-primary-foreground" />
+        <div
+          style={{ background: themeConfig.buttonGradient }}
+          className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full shadow-gift ${btnTextClass}`}
+        >
+          <Check className="h-8 w-8" />
         </div>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Your gift is ready!</h1>
         <p className="mt-3 text-muted-foreground">
           Share this private link with them. Anyone with the link can tap to unwrap it once.
         </p>
 
-        <div className="mt-8 flex items-stretch gap-2 rounded-full border border-border bg-card p-1.5 shadow-soft">
+        <div
+          style={{ borderColor: themeConfig.cardTint }}
+          className="mt-8 flex items-stretch gap-2 rounded-full border bg-card/95 p-1.5 shadow-soft"
+        >
           <div
             title={url}
             className="min-w-0 flex-1 truncate select-all rounded-full px-4 py-2.5 text-left text-sm font-medium"
@@ -499,7 +525,8 @@ function CreatedScreen({
           <MobileButton
             type="button"
             onClick={copy}
-            className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-transform hover:scale-[1.03]"
+            style={{ background: themeConfig.buttonGradient }}
+            className={`flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-transform hover:scale-[1.03] ${btnTextClass}`}
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copied" : "Copy"}

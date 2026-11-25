@@ -16,7 +16,7 @@ Implement a comprehensive theme system with a dedicated slide-over right-side Th
         │            │
         │            └──> [Phase 4: Creator Page Appearance Section & Trigger] ✅
         │                        │
-        │                        ├──> [Phase 4a: Creator Page Themed UI Polish] 🔲
+        │                        ├──> [Phase 4a: Creator Page Themed UI Polish] ✅
         │                        │           │
         └────────────────────────┴───> [Phase 5: Receiver /g/:slug Reveal Sync] ⚠️
                                              │
@@ -29,7 +29,7 @@ Implement a comprehensive theme system with a dedicated slide-over right-side Th
 | **Phase 2** | Database Schema & RPC Hardening | ✅ Done | Migration `20261119190000` + client defensive fallback in `create.tsx`. |
 | **Phase 3** | Right-Side Theme Drawer Component | ✅ Done | `src/components/theme-drawer.tsx` with 12 preview cards, single close button, sticky footer. |
 | **Phase 4** | Creator Page Appearance Section & Trigger | ✅ Done | Centered ~3cm Theme pill button with `Palette` icon, `Live Preview` box, drawer state sync. |
-| **Phase 4a** | Creator Page Themed UI Polish | 🔲 Not started | Extend `ThemeConfig` with `buttonGradient`, `buttonTextColor`, `cardTint`, `previewBg`; make `/create` elements dynamically match theme. |
+| **Phase 4a** | Creator Page Themed UI Polish | ✅ Done | Extended `ThemeConfig` with `buttonGradient`, `buttonTextColor`, `cardTint`, `previewBg`; `/create` dynamically matches all 12 themes. |
 | **Phase 5** | Receiver Reveal Experience Sync | ⚠️ In Progress | Sync remaining reveal page surfaces (`accentText` token wiring, themed CTA buttons on reveal & already-opened screens). |
 | **Phase 6** | Quality Assurance, Verification & Polish | 🔲 Not started | Full client + SSR build validation, contrast check across light & dark themes, mobile touch audits. (Never commit without user approval). |
 
@@ -65,7 +65,7 @@ Implement a comprehensive theme system with a dedicated slide-over right-side Th
   - Live Gift Box preview container showing real-time 3D box preview with the chosen theme.
   - Smooth drawer open/close state management.
 
-### Phase 4a: Creator Page Themed UI Polish (`src/lib/theme.ts`, `src/routes/create.tsx`) — 🔲 Not started
+### Phase 4a: Creator Page Themed UI Polish (`src/lib/theme.ts`, `src/routes/create.tsx`) — ✅ Done
 - **Objective**: Make buttons, form card, and preview container adapt dynamically per-theme so each of the 12 moods feels cohesive on `/create`.
 - **Deliverables**:
   - Extend `ThemeConfig` with `buttonGradient`, `buttonTextColor`, `cardTint`, `previewBg` tokens.
