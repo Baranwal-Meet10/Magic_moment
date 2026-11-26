@@ -1,4 +1,4 @@
-# Phase 4a: Creator Page Themed UI Polish (`src/lib/theme.ts`, `src/routes/create.tsx`)
+git # Phase 4a: Creator Page Themed UI Polish (`src/lib/theme.ts`, `src/routes/create.tsx`)
 
 ## Status: ✅ Done
 
