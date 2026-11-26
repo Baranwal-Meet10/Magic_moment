@@ -59,21 +59,21 @@ export const Route = createFileRoute("/g/$slug")({
     return {
       meta: loaderData?.gift
         ? [
-            {
-              title: safeName
-                ? `A gift from ${safeName} · GiftLink`
-                : "You have a gift · GiftLink",
-            },
-            { name: "description", content: "Tap to unwrap your GiftLink." },
-            {
-              property: "og:title",
-              content: safeName
-                ? `A gift from ${safeName}`
-                : "You have a gift",
-            },
-            { property: "og:description", content: "Tap to unwrap it." },
-            { name: "robots", content: "noindex" },
-          ]
+          {
+            title: safeName
+              ? `A gift from ${safeName} · GiftLink`
+              : "You have a gift · GiftLink",
+          },
+          { name: "description", content: "Tap to unwrap your GiftLink." },
+          {
+            property: "og:title",
+            content: safeName
+              ? `A gift from ${safeName}`
+              : "You have a gift",
+          },
+          { property: "og:description", content: "Tap to unwrap it." },
+          { name: "robots", content: "noindex" },
+        ]
         : [],
     };
   },
@@ -339,9 +339,8 @@ function RevealPage() {
       )}
 
       <div
-        className={`mx-auto flex min-h-dvh max-w-2xl flex-col items-center px-6 py-16 text-center ${
-          opened ? "justify-start sm:justify-center" : "justify-center"
-        }`}
+        className={`mx-auto flex min-h-dvh max-w-2xl flex-col items-center px-6 py-16 text-center ${opened ? "justify-start sm:justify-center" : "justify-center"
+          }`}
       >
         {!opened ? (
           <>
@@ -437,7 +436,7 @@ function RevealPage() {
 
             <Link
               to="/create"
-              className={`mt-8 inline-flex animate-message-in items-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold shadow-gift transition-all duration-300 hover:scale-[1.03] ${themeConfig.buttonTextColor ?? "text-white"}`}
+              className={`mt-8 inline-flex animate-message-in items-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold shadow-gift transition-all duration-300 hover:scale-[1.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${themeConfig.buttonTextColor ?? "text-white"}`}
               style={{ animationDelay: "1.1s", background: themeConfig.buttonGradient }}
             >
               <Gift className="h-4 w-4" /> Create & send your own gift
@@ -575,7 +574,7 @@ function AlreadyOpened({ gift, themeId }: { gift: GiftMeta; themeId: string }) {
         <Link
           to="/create"
           style={{ background: themeConfig.buttonGradient }}
-          className={`mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-soft transition-all duration-300 hover:scale-[1.03] ${btnTextClass}`}
+          className={`mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-soft transition-all duration-300 hover:scale-[1.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${btnTextClass}`}
         >
           <Gift className="h-4 w-4" /> Send your own gift
         </Link>

@@ -367,7 +367,7 @@ function CreatePage() {
                 type="button"
                 onClick={() => setThemeDrawerOpen(true)}
                 style={{ touchAction: "manipulation", background: selectedThemeConfig.buttonGradient }}
-                className={`inline-flex min-w-[7cm] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold shadow-gift transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${btnTextClass}`}
+                className={`inline-flex max-w-full min-w-[7cm] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold shadow-gift transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${btnTextClass}`}
               >
                 <Palette className="h-7 w-7" />
                 <span>Theme</span>
@@ -380,10 +380,10 @@ function CreatePage() {
             style={{ background: selectedThemeConfig.previewBg, borderColor: selectedThemeConfig.cardTint }}
             className="rounded-2xl border p-4 text-center transition-colors duration-300"
           >
-            <div className="mb-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <div className="mb-4 flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground">
               <Sparkles className={`h-3.5 w-3.5 transition-colors duration-300 ${selectedThemeConfig.accentText}`} /> Live Preview: {selectedThemeConfig.label} Theme ({selectedThemeConfig.emoji})
             </div>
-            <MobileGiftBox themeId={theme} unwrapping={false} className="scale-90 sm:scale-100 -my-4" />
+            <MobileGiftBox themeId={theme} unwrapping={false} className="scale-90 sm:scale-100 mt-1 -mb-3" />
           </div>
 
           <ThemeDrawer

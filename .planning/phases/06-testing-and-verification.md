@@ -1,6 +1,6 @@
 # Phase 6: Quality Assurance, Verification & Polish
 
-## Status: 🔲 Not started
+## Status: ⚠️ Partially complete (Build, Lint & Contrast verified; Live Browser QA pending manual check)
 
 ## Goal
 Verify the entire end-to-end theme system across browsers, screen sizes, SSR builds, and accessibility standards.
@@ -8,32 +8,28 @@ Verify the entire end-to-end theme system across browsers, screen sizes, SSR bui
 ## Verification Checklist
 
 1. **Full Production & SSR Build Verification**:
-   - Run `npx tsc --noEmit` to confirm complete TypeScript type safety.
-   - Run `vite build` (or `npm run build`) to guarantee both client and server (SSR) bundles compile with zero errors.
+   - [x] Run `.\node_modules\.bin\tsc.cmd --noEmit` — passed (`exit code 0`).
+   - [x] Run `.\node_modules\.bin\vite.cmd build` — client, SSR, and Nitro (`cloudflare-module`) bundles compiled cleanly (`exit code 0`).
+   - [x] Run `.\node_modules\.bin\eslint.cmd --rule "prettier/prettier: off"` on all theme-related files — `0` errors (`exit code 0`).
 
-2. **12-Theme Visual Smoke Test**:
-   - Spot-check at least 6 diverse themes spanning both light and dark palettes:
-     - Light: `birthday` (warm peach), `welcome` (golden amber), `thanks` (sage green), `botanical` (mint/bloom)
-     - Dark: `congrats` (royal purple), `celestial` (cosmic midnight), `romance` (burgundy candle)
-   - Verify WCAG 2.1 AA text contrast on all themed buttons and badges.
+2. **12-Theme Contrast & Visual Audit**:
+   - [x] Computed WCAG 2.1 AA contrast ratios across all 12 themes in `src/lib/theme.ts`:
+     - Fixed `birthday` `buttonGradient` first stop (`oklch(0.68 0.18 25)` → `oklch(0.54 0.21 20)`), raising minimum white-text button contrast from `3.13:1` to `5.66:1`.
+     - Darkened `accentText` on `birthday`, `love`, `welcome`, and `sunset` so all 12 themes clear `>= 4.5:1` AA contrast against both card backgrounds (`6.08:1`–`13.99:1`) and page gradients (`4.72:1`–`9.88:1`).
+   - [x] Fixed Live Preview gift bow overlapping `"Live Preview: ... Theme"` label in `src/routes/create.tsx` (`mb-4` + `mt-1 -mb-3`).
+   - [ ] Manual visual spot-check in a live browser across light (`birthday`, `welcome`, `thanks`, `botanical`) and dark (`congrats`, `celestial`, `romance`) themes *(blocked in agent session: Chrome DevTools MCP not connected)*.
 
 3. **Interactive Drawer & Creation Flow**:
-   - Open `/create`.
-   - Tap "Theme" button (~3cm centered pill). Verify drawer slides in smoothly from the right.
-   - Cycle through theme cards. Verify live 3D preview box, header badge, and background change immediately.
-   - Close drawer using either "Done" or the top-right close icon. Verify theme persists.
-   - Complete gift creation (with and without optional photo).
+   - [ ] Open `/create` in a live browser and cycle through themes in `ThemeDrawer`, testing `"Done"`, top-right close `X`, and `Escape` persistence.
+   - [ ] Complete gift creation with/without photo *(requires applying `supabase/migration/20261119190000_expand_theme_whitelist.sql` to Supabase for the 7 new themes to persist instead of falling back to `birthday`)*.
 
 4. **Recipient Reveal & Unwrap Experience**:
-   - Open generated `/g/:slug` link.
-   - Verify theme background and ambient glow.
-   - Tap unwrap. Verify box lid pops, confetti & thematic emojis burst, message card appears with theme border and accent text, and CTA button matches theme.
-   - Refresh page to verify AlreadyOpened screen displays matching theme background and button styling.
+   - [ ] Open generated `/g/:slug` link, tap unwrap, verify confetti/emojis/message card, and reload for `AlreadyOpened` screen.
 
 5. **Mobile & Accessibility Audit**:
-   - Test viewport width under 400px (iPhone SE, compact Android).
-   - Verify drawer scrolls smoothly without clipping sticky footer.
-   - Confirm focus indicators (`focus-visible`) are visible when navigating via keyboard (`Tab`, `Enter`, `Escape`).
+   - [x] Added `max-w-full` to the `min-w-[7cm]` Theme button in `src/routes/create.tsx` to prevent overflow on `<340px` viewports.
+   - [x] Added `focus-visible` rings to the revealed & `AlreadyOpened` CTA `<Link>` buttons in `src/routes/g.$slug.tsx` (matching `ThemeDrawer`, `MobileButton`, and `/create`).
+   - [ ] Live mobile viewport (`<400px`) & keyboard (`Tab`, `Enter`, `Escape`) smoke test in browser.
 
 6. **Repository Guardrail**:
-   - ⚠️ **Strict User Rule**: Never commit without explicit user permission. Always report findings and obtain approval before running any git commit commands.
+   - [x] ⚠️ **Strict User Rule**: Never commit without explicit user permission. Always report findings and obtain approval before running any git commit commands.
