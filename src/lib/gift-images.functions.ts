@@ -29,7 +29,7 @@ const inputSchema = z.object({
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const getGiftImageUrls = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => inputSchema.parse(data))
+  .validator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<{ urls: string[] }> => {
     const startTime = Date.now();
     // Minimum response time to prevent timing side-channels (150ms floor)

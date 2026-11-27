@@ -55,7 +55,6 @@ Desktop.ini
 .venv
 
 # Local npm / analysis artifacts
-package-lock.json
 npm-ls*.json
 npm-ls*.err
 install-exists.txt
