@@ -59,21 +59,21 @@ export const Route = createFileRoute("/g/$slug")({
     return {
       meta: loaderData?.gift
         ? [
-            {
-              title: safeName
-                ? `A gift from ${safeName} · GiftLink`
-                : "You have a gift · GiftLink",
-            },
-            { name: "description", content: "Tap to unwrap your GiftLink." },
-            {
-              property: "og:title",
-              content: safeName
-                ? `A gift from ${safeName}`
-                : "You have a gift",
-            },
-            { property: "og:description", content: "Tap to unwrap it." },
-            { name: "robots", content: "noindex" },
-          ]
+          {
+            title: safeName
+              ? `A gift from ${safeName} · GiftLink`
+              : "You have a gift · GiftLink",
+          },
+          { name: "description", content: "Tap to unwrap your GiftLink." },
+          {
+            property: "og:title",
+            content: safeName
+              ? `A gift from ${safeName}`
+              : "You have a gift",
+          },
+          { property: "og:description", content: "Tap to unwrap it." },
+          { name: "robots", content: "noindex" },
+        ]
         : [],
     };
   },
@@ -85,7 +85,7 @@ export const Route = createFileRoute("/g/$slug")({
           The link may be mistyped or the gift was never created.
         </p>
         <Link
-          to="/"
+          to="/create"
           className="mt-6 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-soft"
         >
           Send your own gift
@@ -339,13 +339,12 @@ function RevealPage() {
       )}
 
       <div
-        className={`mx-auto flex min-h-dvh max-w-2xl flex-col items-center px-6 py-16 text-center ${
-          opened ? "justify-start sm:justify-center" : "justify-center"
-        }`}
+        className={`mx-auto flex min-h-dvh max-w-2xl flex-col items-center px-6 py-16 text-center ${opened ? "justify-start sm:justify-center" : "justify-center"
+          }`}
       >
         {!opened ? (
           <>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            <p className={`mb-2 text-sm font-semibold uppercase tracking-widest ${themeConfig.accentText}`}>
               {gift.creator_name ? `From ${gift.creator_name}` : "Someone sent you"}
             </p>
 
@@ -388,20 +387,27 @@ function RevealPage() {
           </>
         ) : (
           <div className="w-full animate-reveal-rise">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-card/80 backdrop-blur px-4 py-1.5 text-xs font-semibold shadow-soft">
-              <Sparkles className="h-3.5 w-3.5 text-primary" /> {themeConfig.badgeText} {themeConfig.emoji}
+            <div
+              style={{ borderColor: themeConfig.cardTint }}
+              className="mb-4 inline-flex items-center gap-2 rounded-full border bg-card/85 backdrop-blur px-4 py-1.5 text-xs font-semibold shadow-soft"
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${themeConfig.accentText}`} />{" "}
+              <span className={themeConfig.accentText}>{themeConfig.badgeText}</span> {themeConfig.emoji}
             </div>
 
             {gift.creator_name && (
               <p
-                className="mb-2 animate-message-in text-sm font-semibold uppercase tracking-widest text-muted-foreground"
+                className={`mb-2 animate-message-in text-sm font-semibold uppercase tracking-widest ${themeConfig.accentText}`}
                 style={{ animationDelay: "0.5s" }}
               >
                 From {gift.creator_name}
               </p>
             )}
 
-            <div className={`rounded-3xl border ${themeConfig.cardAccentBorder} bg-card p-8 shadow-gift sm:p-12`}>
+            <div
+              style={{ borderColor: themeConfig.cardTint }}
+              className={`rounded-3xl border ${themeConfig.cardAccentBorder} bg-card/95 backdrop-blur-sm p-8 shadow-gift sm:p-12`}
+            >
               {signedImages[0] ? (
                 <img
                   src={signedImages[0]}
@@ -430,8 +436,8 @@ function RevealPage() {
 
             <Link
               to="/create"
-              className="mt-8 inline-flex animate-message-in items-center gap-2 rounded-full bg-gradient-warm px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-gift transition-transform hover:scale-[1.03]"
-              style={{ animationDelay: "1.1s" }}
+              className={`mt-8 inline-flex animate-message-in items-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold shadow-gift transition-all duration-300 hover:scale-[1.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${themeConfig.buttonTextColor ?? "text-white"}`}
+              style={{ animationDelay: "1.1s", background: themeConfig.buttonGradient }}
             >
               <Gift className="h-4 w-4" /> Create & send your own gift
             </Link>
@@ -543,13 +549,20 @@ function Confetti({ colors, emojis }: { colors: string[]; emojis?: string[] }) {
 
 function AlreadyOpened({ gift, themeId }: { gift: GiftMeta; themeId: string }) {
   const themeConfig = getThemeConfig(themeId);
+  const btnTextClass = themeConfig.buttonTextColor ?? "text-white";
   return (
     <main
-      className="flex min-h-dvh items-center justify-center px-6"
+      className="flex min-h-dvh items-center justify-center px-6 transition-colors duration-500"
       style={{ background: themeConfig.bgGradient }}
     >
-      <div className="max-w-md rounded-3xl border border-border bg-card p-10 text-center shadow-soft">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-primary">
+      <div
+        style={{ borderColor: themeConfig.cardTint }}
+        className="max-w-md rounded-3xl border bg-card/95 backdrop-blur-sm p-10 text-center shadow-soft"
+      >
+        <div
+          style={{ background: themeConfig.previewBg }}
+          className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${themeConfig.accentText}`}
+        >
           <Lock className="h-6 w-6" />
         </div>
         <h1 className="font-display text-3xl font-semibold">This gift has been opened.</h1>
@@ -560,7 +573,8 @@ function AlreadyOpened({ gift, themeId }: { gift: GiftMeta; themeId: string }) {
         </p>
         <Link
           to="/create"
-          className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-warm px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft"
+          style={{ background: themeConfig.buttonGradient }}
+          className={`mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-soft transition-all duration-300 hover:scale-[1.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${btnTextClass}`}
         >
           <Gift className="h-4 w-4" /> Send your own gift
         </Link>

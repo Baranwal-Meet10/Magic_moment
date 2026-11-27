@@ -44,7 +44,7 @@ export const MobileButton = React.forwardRef<HTMLButtonElement, MobileButtonProp
           ...style,
         }}
         className={cn(
-          "min-h-[48px] touch-manipulation select-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 transition-transform duration-100 active:scale-[0.97] disabled:opacity-60 disabled:pointer-events-none",
+          "min-h-[48px] touch-manipulation select-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-transform duration-100 active:scale-[0.97] disabled:opacity-60 disabled:pointer-events-none",
           className
         )}
       >
@@ -122,7 +122,7 @@ export function MobileGiftBox({
         outline: "none",
       }}
       className={cn(
-        "relative z-10 mx-auto block cursor-pointer select-none p-4 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ring-0 border-none rounded-3xl transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-80",
+        "relative z-10 mx-auto block cursor-pointer select-none p-4 outline-none focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ring-0 border-none rounded-3xl transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-80",
         className
       )}
     >
